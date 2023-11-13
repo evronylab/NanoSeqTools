@@ -1,0 +1,13 @@
+Package: NanoSeqTools
+Title: This function loads all the files one would need for the analysis of Nanoseq data.
+Version: 0.0.0.9000
+Authors@R: 
+    person("Amoolya", "Srinivasa", , "first.last@example.com", role = c("aut", "cre"),
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: The input for this function would be the list of directories containing the NanoSeq results. The function gives a data structure as the output which has all the data frames for Mutation Burden analysis, Single base Substitutions and Indel Signature analysis in the results object as a list.
+License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
+    license
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+Imports: purrr, dplyr, tibble, tidyr, sigfit, tools
