@@ -1,7 +1,7 @@
-# NanoSeqTools
-Custom R package for loading all relevant files for NanoSeq data analysis
+# **NanoSeqTools**
 
-# Load all data required for NanoSeq analysis
+# _R package to load all relevant files for NanoSeq data analysis_
+
 
 ## Description
 This function loads all the relevant files one would need for analysis on NanoSeq data. For more information regarding the files refer to the "output" section in the NanoSeq GitHub here: [Link to NanoSeq GitHub](https://github.com/cancerit/NanoSeq)
