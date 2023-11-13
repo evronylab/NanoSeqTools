@@ -10,6 +10,17 @@ The first input for this function would be the list of directories containing th
 
 The second input of this function would be the suffix at the end of the directory name that the user wants to remove, so as to retain only the Sample IDs. For example, if the name of the directory is "sample_id_results", running the function with suffix_to_remove="_results", would remove this suffix from all file names and retain only "sample_id". If no suffix is to be removed, the input is given as "NA".
 
+## Installation
+
+```
+
+## Install NanoSeqTools directly from github using devtools
+
+install.packages("devtools")
+devtools::install_github('https://github.com/evronylab/NanoSeqTools/')
+
+```
+
 ## Usage
 load_nanoseq_data(subdirs, suffix_to_remove)
 
