@@ -13,12 +13,10 @@ The second input of this function would be the suffix at the end of the director
 ## Installation
 
 ```
-
 ## Install NanoSeqTools directly from github using devtools
 
 install.packages("devtools")
 devtools::install_github('https://github.com/evronylab/NanoSeqTools/')
-
 ```
 
 ## Usage
@@ -26,7 +24,12 @@ load_nanoseq_data(subdirs, suffix_to_remove)
 
 ## Arguments
 ### subdirs	
-List of all directories in which the results of NanoSeq is saved. Generate the list of sub directories using list.dirs(normalizePath(directory_path), full.names = TRUE, recursive = FALSE) where directory_path is the parent directory with all the sub directories.
+List of all directories in which the results of NanoSeq is saved. 
+Generate the list of sub directories using 
+```
+list.dirs(normalizePath(directory_path), full.names = TRUE, recursive = FALSE)
+```
+where directory_path is the parent directory with all the sub directories.
 
 ### suffix_to_remove	
 A string input of the suffix which you want removed from the name of the directories, to retain only the Sample IDs without any suffixes. If there is no suffix to remove, give the input as "NA".
