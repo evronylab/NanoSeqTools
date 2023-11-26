@@ -23,10 +23,12 @@ devtools::install_github('https://github.com/evronylab/NanoSeqTools/')
 ```
 
 ## Usage
+```
 library(vcfR)
 library(tidyverse)
 
 load_nanoseq_data(dirs, suffix_to_remove, BSgenomepackagename, BSgenomecontigs)
+```
 
 ## Arguments
 ### dirs	
