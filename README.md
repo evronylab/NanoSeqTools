@@ -64,11 +64,11 @@ A list containing the following data objects:
 
 * trinuc_bg.sigfit: Data frame in sigfit format of the trinucleotide background (i.e. number of interrogated bases for each trinucleotide context), with one row per sample and one column per trinucleotide context.
 
-* observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts. Columns: sample, tri (trinucleotide context), trint_subst_observed, trint_subst_corrected.
+* observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts (for all mutations and for unique mutations). Columns: sample, tri (trinucleotide context), trint_subst_observed, trint_subst_unique_observed, ratio2genome, trint_subst_corrected, trint_subst_unique_corrected.
 
-* observed_trinuc_counts.sigfit: Data frame in sigfit format of observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
+* observed_trinuc_counts.sigfit: Data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
 
-* mutation_burden: The total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, with one row per sample.
+* mutation_burden: The total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, with one row per sample. All these statistics include all mutations, not just unique mutations.
 
 * purine_trinuc_mismatches: Data frame of the number of single-strand consensus purine mismatches. Columns: sample, tri (trinucleotide context), value.
 

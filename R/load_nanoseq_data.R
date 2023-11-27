@@ -13,11 +13,11 @@
 #' * vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations)
 #' * vcf_indel.fix: List (one object per sample) containing the fixed information (fix) from the indel vcf (only FILTER = PASS mutations)
 #' * vcf_indel.gt: List (one object per sample) containing the genotype information (gt) from the indel vcf (only FILTER = PASS mutations)
-#' trinuc_bg_ratio: Data frame of the sample trinucleotide background (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background (i.e. number of each trinucleotide context), and the normalized ratio of these. Columns: sample, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
-#' trinuc_bg.sigfit: Data frame in sigfit format of the trinucleotide background (i.e. number of interrogated bases for each trinucleotide context), with one row per sample and one column per trinucleotide context.
-#' * observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts. Columns: sample, tri (trinucleotide context), trint_subst_observed, trint_subst_corrected.
-#' * observed_trinuc_counts.sigfit: Data frame in sigfit format of observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
-#' * mutation_burden: The total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, with one row per sample.
+#' * trinuc_bg_ratio: Data frame of the sample trinucleotide background (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background (i.e. number of each trinucleotide context), and the normalized ratio of these. Columns: sample, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
+#' * trinuc_bg.sigfit: Data frame in sigfit format of the trinucleotide background (i.e. number of interrogated bases for each trinucleotide context), with one row per sample and one column per trinucleotide context.
+#' * observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts (for all mutations and for unique mutations). Columns: sample, tri (trinucleotide context), trint_subst_observed, trint_subst_unique_observed, ratio2genome, trint_subst_corrected, trint_subst_unique_corrected.
+#' * observed_trinuc_counts.sigfit: Data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
+#' * mutation_burden: The total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, with one row per sample. All these statistics include all mutations, not just unique mutations.
 #' * purine_trinuc_mismatches: Data frame of the number of single-strand consensus purine mismatches. Columns: sample, tri (trinucleotide context), value.
 #' * pyrimidine_trinuc_mismatches: Data frame of the number of single-strand consensus pyrimidine mismatches. Columns: sample, tri (trinucleotide context), value.
 #' * estimated_error_rates: Data frame of the probability of having independent errors affecting both strands and resulting in a false-positive double-strand mutation and the number of estimated false positive double-strand mutations, based on the independent error rates in the purine channels. Columns: sample, total_error_rate, total_errors.
@@ -91,21 +91,26 @@ load_nanoseq_data <- function(dirs, suffix_to_remove = "NA", BSgenomepackagename
     
     ratio2genome <- results.trint_counts_and_ratio2genome[[sample_name]] %>% select(tri,ratio2genome)
     
-    #Calculate number of observed and corrected SNPs in each trinucleotide context
-    results.trint_subs_obs_corrected[[sample_name]] <- vcf_snp.fix[[sample_name]]$INFO %>%
-      str_replace(".*TRI=","") %>%
-      str_replace(";.*","") %>%
-      table %>%
-      as.data.frame
-    colnames(results.trint_subs_obs_corrected[[sample_name]]) <- c("tri_med","trint_subst_observed")
-    results.trint_subs_obs_corrected[[sample_name]] <- results.trint_subs_obs_corrected[[sample_name]] %>%
-      mutate(tri = str_c(str_sub(tri_med,1,4),str_sub(tri_med,1,1),str_sub(tri_med,5,5),str_sub(tri_med,3,3))) %>%
-      select(tri,trint_subst_observed) %>%
-      right_join(data.frame(tri_all = trint_subs_labels),by=c("tri" = "tri_all")) %>%
-      replace(is.na(.), 0) %>%
+    #Calculate number of observed and corrected SNPs in each trinucleotide context, both for all mutations and after collapsing to unique mutations
+    vcf_snp.fix.all <- vcf_snp.fix[[sample_name]] %>% select (CHROM,POS,REF,ALT,INFO) %>%
+      mutate(INFO = str_replace(INFO,".*TRI=",""),
+      			 INFO = str_replace(INFO,";.*",""),
+      			 tri = str_c(str_sub(INFO,1,4),str_sub(INFO,1,1),str_sub(INFO,5,5),str_sub(INFO,3,3))
+      ) %>%
+    	select(-INFO)
+    
+    vcf_snp.fix.unique <- vcf_snp.fix.all %>% distinct
+    
+    vcf_snp.fix.all <- vcf_snp.fix.all %>% select(tri) %>% table %>% as.data.frame %>% rename(trint_subst_observed = Freq)
+    vcf_snp.fix.unique <- vcf_snp.fix.unique %>% select(tri) %>% table %>% as.data.frame %>% rename(trint_subst_unique_observed = Freq)
+    
+    results.trint_subs_obs_corrected[[sample_name]] <- left_join(data.frame(tri = trint_subs_labels),vcf_snp.fix.all,by="tri") %>%
+    	left_join(vcf_snp.fix.unique,by="tri") %>%
+    	replace(is.na(.), 0) %>%
       mutate(tri_short=str_sub(tri,1,3)) %>%
       left_join(ratio2genome,by=c("tri_short" = "tri")) %>%
-      mutate(trint_subst_corrected = trint_subst_observed / ratio2genome) %>%
+      mutate(trint_subst_corrected = trint_subst_observed / ratio2genome,
+      			 trint_subst_unique_corrected = trint_subst_unique_observed / ratio2genome) %>%
       select(-tri_short) %>%
       arrange(match(tri,trint_subs_labels))
     
@@ -148,10 +153,11 @@ load_nanoseq_data <- function(dirs, suffix_to_remove = "NA", BSgenomepackagename
   results.SSC_mismatches_pyrimidine <- bind_rows(results.SSC_mismatches_pyrimidine,.id="sample")
   results.estimated_error_rates <- bind_rows(results.estimated_error_rates,.id="sample")
   
-  #Create sigfit format data for observed mutation counts and trinucleotide background counts, with samples in rows and trinucleotide contexts in columns
+  #Create sigfit format data for observed unique mutation counts and trinucleotide background counts, with samples in rows and trinucleotide contexts in columns
+  # Note: using unique mutation counts, since that is a more faithful representation of the mutational process.
   results.trint_subst_obs.sigfit <- results.trint_subs_obs_corrected %>%
-    select(sample,tri,trint_subst_observed) %>%
-    pivot_wider(names_from=tri,values_from=trint_subst_observed) %>%
+    select(sample,tri,trint_subst_unique_observed) %>%
+    pivot_wider(names_from=tri,values_from=trint_subst_unique_observed) %>%
     column_to_rownames("sample")
   
   results.trint_counts.sigfit <- results.trint_counts_and_ratio2genome %>%
