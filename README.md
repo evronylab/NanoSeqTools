@@ -40,8 +40,8 @@ list.dirs(normalizePath(directory_path), full.names = TRUE, recursive = FALSE)
 ```
 where directory_path is a parent directory containing all the directories.
 
-### suffix_to_remove	
-A string to remove from the NanoSeq results directory names, to retain only the Sample IDs without any suffixes. If there is no suffix to remove, give the input as "NA".
+### sample_names
+A character vector of the sample names to assign to the results, in the same order as the directories in 'dirs'.
 
 ### BSgenomepackagename	
 A string of a BSgenome package corresponding to the reference genome used in the Nanoseq analysis (e.g., "BSgenome.Hsapiens.UCSC.hg38" or "BSgenome.Mmusculus.UCSC.mm10"). This is used to calculate the genome trinucleotide background and corrected substitution counts and burdens.

@@ -4,17 +4,12 @@
 \alias{load_nanoseq_data}
 \title{Load all data required for NanoSeq analysis}
 \usage{
-load_nanoseq_data(
-  dirs,
-  suffix_to_remove = "NA",
-  BSgenomepackagename,
-  BSgenomecontigs
-)
+load_nanoseq_data(dirs, sample_names, BSgenomepackagename, BSgenomecontigs)
 }
 \arguments{
-\item{dirs}{List of all the directories containing NanoSeq results to load.}
+\item{dirs}{A character vector of the directories containing NanoSeq results to load.}
 
-\item{suffix_to_remove}{A string to remove from the NanoSeq results directory names, to retain only the Sample IDs without any suffixes. If there is no suffix to remove, give the input as "NA" (default).}
+\item{sample_names}{A character vector of the sample names to assign to the results, in the same order as the directories in 'dirs'.}
 
 \item{BSgenomepackagename}{A string of a BSgenome package corresponding to the reference genome used in the Nanoseq analysis (e.g., "BSgenome.Hsapiens.UCSC.hg38" or "BSgenome.Mmusculus.UCSC.mm10"). This is used to calculate the genome trinucleotide background and corrected substitution counts and burdens.}
 
