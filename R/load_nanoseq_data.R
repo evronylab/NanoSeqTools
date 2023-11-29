@@ -76,7 +76,6 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     # Load vcf files
     vcf_snp <- read.vcfR(paste0(dir,"/results.muts.vcf.gz"),verbose=FALSE)
     vcf_snp.fix[[sample_name]] <- data.frame(vcf_snp@fix) %>% filter(FILTER == "PASS")
-    vcf_snp.gt[[sample_name]] <- data.frame(vcf_snp@gt) %>% filter(data.frame(vcf_snp@fix)$FILTER == "PASS")
     
     vcf_indel <- read.vcfR(paste0(dir,"/results.indel.vcf.gz"),verbose=FALSE)
     vcf_indel.fix[[sample_name]] <- data.frame(vcf_indel@fix) %>% filter(FILTER == "PASS")
@@ -172,7 +171,6 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   results <- list(
     sample_id = names(vcf_snp.fix),
     vcf_snp.fix = vcf_snp.fix,
-    vcf_snp.gt = vcf_snp.gt,
     vcf_indel.fix = vcf_indel.fix,
     vcf_indel.gt = vcf_indel.gt,
     trinuc_bg_ratio = results.trint_counts_and_ratio2genome,
