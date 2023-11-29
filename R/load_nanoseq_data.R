@@ -83,25 +83,25 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     
     # Load sample and genome trinucleotide background counts, and calculate ratio
     results.trint_counts_and_ratio2genome[[sample_name]] <- read.delim(paste0(dir,"/results.trint_counts_and_ratio2genome.tsv"),header=FALSE,skip=1) %>%
-      select(-V3) %>%
+      dplyr::select(-V3) %>%
       dplyr::rename(tri=V1,sample_tri_bg=V2) %>%
       left_join(genome_trinuc_counts,by="tri") %>%
       mutate(ratio2genome=(sample_tri_bg/sum(sample_tri_bg))/(genome_tri_bg/sum(genome_tri_bg)) )
     
-    ratio2genome <- results.trint_counts_and_ratio2genome[[sample_name]] %>% select(tri,ratio2genome)
+    ratio2genome <- results.trint_counts_and_ratio2genome[[sample_name]] %>% dplyr::select(tri,ratio2genome)
     
     #Calculate number of observed and corrected SNPs in each trinucleotide context, both for all mutations and after collapsing to unique mutations
-    vcf_snp.fix.all <- vcf_snp.fix[[sample_name]] %>% select (CHROM,POS,REF,ALT,INFO) %>%
+    vcf_snp.fix.all <- vcf_snp.fix[[sample_name]] %>% dplyr::select (CHROM,POS,REF,ALT,INFO) %>%
       mutate(INFO = str_replace(INFO,".*TRI=",""),
       			 INFO = str_replace(INFO,";.*",""),
       			 tri = str_c(str_sub(INFO,1,4),str_sub(INFO,1,1),str_sub(INFO,5,5),str_sub(INFO,3,3))
       ) %>%
-    	select(-INFO)
+    	dplyr::select(-INFO)
     
     vcf_snp.fix.unique <- vcf_snp.fix.all %>% distinct
     
-    vcf_snp.fix.all <- vcf_snp.fix.all %>% select(tri) %>% table %>% as.data.frame %>% rename(trint_subst_observed = Freq)
-    vcf_snp.fix.unique <- vcf_snp.fix.unique %>% select(tri) %>% table %>% as.data.frame %>% rename(trint_subst_unique_observed = Freq)
+    vcf_snp.fix.all <- vcf_snp.fix.all %>% dplyr::select(tri) %>% table %>% as.data.frame %>% rename(trint_subst_observed = Freq)
+    vcf_snp.fix.unique <- vcf_snp.fix.unique %>% dplyr::select(tri) %>% table %>% as.data.frame %>% rename(trint_subst_unique_observed = Freq)
     
     results.trint_subs_obs_corrected[[sample_name]] <- left_join(data.frame(tri = trint_subs_labels),vcf_snp.fix.all,by="tri") %>%
     	left_join(vcf_snp.fix.unique,by="tri") %>%
@@ -110,7 +110,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
       left_join(ratio2genome,by=c("tri_short" = "tri")) %>%
       mutate(trint_subst_corrected = trint_subst_observed / ratio2genome,
       			 trint_subst_unique_corrected = trint_subst_unique_observed / ratio2genome) %>%
-      select(-tri_short) %>%
+      dplyr::select(-tri_short) %>%
       arrange(match(tri,trint_subs_labels))
     
     results.mut_burden[[sample_name]] <- data.frame(
@@ -134,12 +134,12 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     results.SSC_mismatches_purine[[sample_name]] <- read.delim(paste0(dir,"/results.SSC-mismatches-Purine.triprofiles.tsv"), header=FALSE) %>%
       mutate(tri = str_c(str_sub(V1,1,4),str_sub(V1,1,1),str_sub(V1,5,5),str_sub(V1,3,3))) %>%
       dplyr::rename(value=V2) %>%
-      select(tri,value)
+      dplyr::select(tri,value)
     
     results.SSC_mismatches_pyrimidine[[sample_name]] <- read.delim(paste0(dir,"/results.SSC-mismatches-Pyrimidine.triprofiles.tsv"), header=FALSE) %>%
       mutate(tri = str_c(str_sub(V1,1,4),str_sub(V1,1,1),str_sub(V1,5,5),str_sub(V1,3,3))) %>%
       dplyr::rename(value=V2) %>%
-      select(tri,value)
+      dplyr::select(tri,value)
     
     results.estimated_error_rates[[sample_name]] <- read.delim(paste0(dir,"/results.estimated_error_rates.tsv"), header=FALSE, row.names=1) %>% t %>% as.data.frame %>% remove_rownames
   }
@@ -156,12 +156,12 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   #Create sigfit format data for observed unique mutation counts and trinucleotide background counts, with samples in rows and trinucleotide contexts in columns
   # Note: using unique mutation counts, since that is a more faithful representation of the mutational process.
   results.trint_subst_obs.sigfit <- results.trint_subs_obs_corrected %>%
-    select(sample,tri,trint_subst_unique_observed) %>%
+    dplyr::select(sample,tri,trint_subst_unique_observed) %>%
     pivot_wider(names_from=tri,values_from=trint_subst_unique_observed) %>%
     column_to_rownames("sample")
   
   results.trint_counts.sigfit <- results.trint_counts_and_ratio2genome %>%
-    select(sample,tri,sample_tri_bg) %>%
+    dplyr::select(sample,tri,sample_tri_bg) %>%
     pivot_wider(names_from=tri,values_from=sample_tri_bg) %>%
     column_to_rownames("sample")
   results.trint_counts.sigfit <- results.trint_counts.sigfit[,genome_freqs_labels]
@@ -173,14 +173,14 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     vcf_snp.fix = vcf_snp.fix,
     vcf_indel.fix = vcf_indel.fix,
     vcf_indel.gt = vcf_indel.gt,
-    trinuc_bg_ratio <- results.trint_counts_and_ratio2genome,
-    trinuc_bg.sigfit <- results.trint_counts.sigfit,
-    observed_corrected_trinuc_counts <- results.trint_subs_obs_corrected,
-    observed_trinuc_counts.sigfit <- results.trint_subst_obs.sigfit,
-    mutation_burden <- results.mut_burden,
-    purine_trinuc_mismatches <- results.SSC_mismatches_purine,
-    pyrimidine_trinuc_mismatches <- results.SSC_mismatches_pyrimidine,
-    estimated_error_rates <- results.estimated_error_rates
+    trinuc_bg_ratio = results.trint_counts_and_ratio2genome,
+    trinuc_bg.sigfit = results.trint_counts.sigfit,
+    observed_corrected_trinuc_counts = results.trint_subs_obs_corrected,
+    observed_trinuc_counts.sigfit = results.trint_subst_obs.sigfit,
+    mutation_burden = results.mut_burden,
+    purine_trinuc_mismatches = results.SSC_mismatches_purine,
+    pyrimidine_trinuc_mismatches = results.SSC_mismatches_pyrimidine,
+    estimated_error_rates = results.estimated_error_rates
   )
   
   message("DONE")
