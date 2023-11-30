@@ -16,6 +16,7 @@
 #' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these. Columns: sample, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 #' * trinuc_bg_counts.sigfit: Data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 #' * trinuc_bg_ratio.sigfit: Data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
+#' * genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
 #' * observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts (for all mutations and for unique mutations). Columns: sample, tri (trinucleotide context), trint_subst_observed, trint_subst_unique_observed, ratio2genome, trint_subst_corrected, trint_subst_unique_corrected.
 #' * observed_trinuc_counts.sigfit: Data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
 #' * mutation_burden: The total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, with one row per sample. All these statistics include all mutations, not just unique mutations.
@@ -183,6 +184,13 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     pivot_wider(names_from=tri,values_from=trint_subst_unique_observed) %>%
     column_to_rownames("sample")
   
+  # Format genome_trinuc_counts to named vector in order of genome_freqs_labels
+  genome_trinuc_counts.sigfit <- genome_trinuc_counts %>% column_to_rownames("tri")
+  genome_trinuc_counts.sigfit <- genome_trinuc_counts.sigfit[genome_freqs_labels,,drop=FALSE] %>% t %>% asplit(1) %>% unlist
+  names(genome_trinuc_counts.sigfit) <- names(genome_trinuc_counts.sigfit) %>%
+  	str_replace("genome_tri_bg.","") %>%
+  	str_replace("\\..*","")
+  
   # Create a list or data structure to store the results
   results <- list(
     sample_id = names(vcf_snp.fix),
@@ -192,6 +200,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     trinuc_bg_counts_ratio = results.trint_counts_and_ratio2genome,
     trinuc_bg_counts.sigfit = results.sample_tri_bg.sigfit,
     trinuc_bg_ratio.sigfit = results.ratio2genome.sigfit,
+    genome_trinuc_counts.sigfit = genome_trinuc_counts.sigfit,
     observed_corrected_trinuc_counts = results.trint_subs_obs_corrected,
     observed_trinuc_counts.sigfit = results.trint_subst_obs.sigfit,
     mutation_burden = results.mut_burden,
