@@ -1,9 +1,7 @@
 # **NanoSeqTools**
-_An R package to load all relevant files for NanoSeq data analysis_
-
 
 ## Description
-This function loads all the files for analysis of NanoSeq data. For more information regarding NanoSeq output files, refer to the "output" section in the [NanoSeq GitHub](https://github.com/cancerit/NanoSeq).
+This R package contains functions for NanoSeq data analysis. For more information regarding NanoSeq output files, refer to the "output" section in the [NanoSeq GitHub](https://github.com/cancerit/NanoSeq).
 
 ## Prerequisites
 * [Tidyverse](https://www.tidyverse.org/packages/)
@@ -22,6 +20,7 @@ devtools::install_github('https://github.com/evronylab/NanoSeqTools/')
 ```
 
 ## Usage
+### Load all files for analysis of NanoSeq data
 ```
 load_nanoseq_data(dirs, suffix_to_remove, BSgenomepackagename, BSgenomecontigs)
 ```
