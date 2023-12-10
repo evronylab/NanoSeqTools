@@ -1,6 +1,5 @@
 # **NanoSeqTools**
-
-# _R package to load all relevant files for NanoSeq data analysis_
+_An R package to load all relevant files for NanoSeq data analysis_
 
 
 ## Description
