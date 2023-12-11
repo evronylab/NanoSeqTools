@@ -28,9 +28,9 @@
 load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomecontigs) {
   
   #Load package
-	suppressPackageStartupMessages(library(BSgenomepackagename,character.only=TRUE))
-	suppressPackageStartupMessages(library(vcfR))
-	suppressPackageStartupMessages(library(tidyverse))
+  suppressPackageStartupMessages(library(BSgenomepackagename,character.only=TRUE))
+  suppressPackageStartupMessages(library(vcfR))
+  suppressPackageStartupMessages(library(tidyverse))
   
   #Check inputs
   if(length(dirs) != length(sample_names)){
