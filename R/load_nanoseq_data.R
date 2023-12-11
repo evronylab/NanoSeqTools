@@ -68,6 +68,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   }
   
   #Calculate reference genome trinucloetide counts, reduced to 32 trinucleotide contexts
+  message("Calculating reference genome trinucloetide counts...")
   genome_trinuc_counts <- NULL
   for(i in BSgenomecontigs){
     genome_trinuc_counts <- rbind(genome_trinuc_counts,trinucleotideFrequency(eval(parse(text=BSgenomepackagename))[[i]]))
@@ -80,6 +81,8 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     
     dir <- dirs[i]
     sample_name <- sample_names[i]
+
+    message(paste0("  ",sample_name))
 
     # Load vcf files
     vcf_snp <- read.vcfR(paste0(dir,"/results.muts.vcf.gz"),verbose=FALSE)
@@ -108,8 +111,8 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     
     vcf_snp.fix.unique <- vcf_snp.fix.all %>% distinct
     
-    vcf_snp.fix.all <- vcf_snp.fix.all %>% dplyr::select(tri) %>% table %>% as.data.frame %>% rename(trint_subst_observed = Freq)
-    vcf_snp.fix.unique <- vcf_snp.fix.unique %>% dplyr::select(tri) %>% table %>% as.data.frame %>% rename(trint_subst_unique_observed = Freq)
+    vcf_snp.fix.all <- vcf_snp.fix.all %>% dplyr::select(tri) %>% table %>% as.data.frame %>% dplyr::rename(trint_subst_observed = Freq)
+    vcf_snp.fix.unique <- vcf_snp.fix.unique %>% dplyr::select(tri) %>% table %>% as.data.frame %>% dplyr::rename(trint_subst_unique_observed = Freq)
     
     results.trint_subs_obs_corrected[[sample_name]] <- left_join(data.frame(tri = trint_subs_labels),vcf_snp.fix.all,by="tri") %>%
     	left_join(vcf_snp.fix.unique,by="tri") %>%
