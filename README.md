@@ -1,14 +1,27 @@
 # **NanoSeqTools**
 
-## Description
 This R package contains functions for NanoSeq data analysis. For more information regarding NanoSeq output files, refer to the "output" section in the [NanoSeq GitHub](https://github.com/cancerit/NanoSeq).
+
+### Outline
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [load_nanoseq_data](#load_nanoseq_data)
+  - [load_nanoseq_bedcov](#load_nanoseq_bedcov)
+- [Citation](#citation)
 
 ## Prerequisites
 * [Tidyverse](https://www.tidyverse.org/packages/)
 
 * [vcfR](https://github.com/knausb/vcfR)
 
+* [rtracklayer](https://bioconductor.org/packages/release/bioc/html/Rsamtools.html)
+
+* [GenomicRanges](https://bioconductor.org/packages/release/bioc/html/rtracklayer.html)
+
 * BSgenome package corresponding to the reference genome used in the NanoSeq analysis
+
+* [tabix](http://www.htslib.org/download/) >=v1.10; part of htslib
 
 ## Installation
 
@@ -20,14 +33,14 @@ devtools::install_github('https://github.com/evronylab/NanoSeqTools/')
 ```
 
 ## Usage
-### Load all files for analysis of NanoSeq data
+### load_nanoseq_data
+Load all files for analysis of NanoSeq data
 ```
 load_nanoseq_data(dirs, suffix_to_remove, BSgenomepackagename, BSgenomecontigs)
 ```
 
-## Arguments
-### dirs	
-List of all the directories with NanoSeq results to load.
+##### Arguments
+* dirs: List of all the directories with NanoSeq results to load.
 
 The list of directories can be generated with:
 ```
@@ -35,19 +48,18 @@ list.dirs(normalizePath(directory_path), full.names = TRUE, recursive = FALSE)
 ```
 where directory_path is a parent directory containing all the directories.
 
-### sample_names
-A character vector of the sample names to assign to the results, in the same order as the directories in 'dirs'.
+* sample_names: A character vector of the sample names to assign to the results, in the same order as the directories in 'dirs'.
 
-### BSgenomepackagename	
-A string of a BSgenome package corresponding to the reference genome used in the Nanoseq analysis (e.g., "BSgenome.Hsapiens.UCSC.hg38" or "BSgenome.Mmusculus.UCSC.mm10"). This is used to calculate the genome trinucleotide background and corrected substitution counts and burdens.
+* BSgenomepackagename: A string of a BSgenome package corresponding to the reference genome used in the Nanoseq analysis (e.g., "BSgenome.Hsapiens.UCSC.hg38" or "BSgenome.Mmusculus.UCSC.mm10"). This is used to calculate the genome trinucleotide background and corrected substitution counts and burdens.
 
-### BSgenomecontigs	
-A vector of numeric indices of the contigs of the BSgenome package from which to calculate the genome trinucleotide background (e.g., 1:24 for BSgenome.Hsapiens.UCSC.hg38, or 1:21 for BSgenome.Mmusculus.UCSC.mm10).
+* BSgenomecontigs: A vector of numeric indices of the contigs of the BSgenome package from which to calculate the genome trinucleotide background (e.g., 1:24 for BSgenome.Hsapiens.UCSC.hg38, or 1:21 for BSgenome.Mmusculus.UCSC.mm10).
 
-## Outputs
+#### Outputs
 A list containing the following data objects:
 
-* sample_id: A vector of all sample IDs that were loaded
+* sample_names: A vector of all sample IDs that were loaded
+
+* dirs: A vector of the directories containing the NanoSeq results that were loaded
 
 * vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations)
 
@@ -74,3 +86,15 @@ A list containing the following data objects:
 * pyrimidine_trinuc_mismatches: Data frame of the number of single-strand consensus pyrimidine mismatches. Columns: sample, tri (trinucleotide context), value.
 
 * estimated_error_rates: Data frame of the probability of having independent errors affecting both strands and resulting in a false-positive double-strand mutation and the number of estimated false positive double-strand mutations, based on the independent error rates in the purine channels. Columns: sample, total_error_rate, total_errors.
+
+### load_nanoseq_regions
+Load all files for analysis of NanoSeq data
+
+##### Arguments
+* 
+
+#### Outputs
+* 
+
+## Citation
+If you use NanoSeqTools, please cite Srinivasa A, Evrony GD, [TBD].
