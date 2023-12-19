@@ -6,7 +6,12 @@ trint_subs_labels <- c("ACA>AAA","ACC>AAC","ACG>AAG","ACT>AAT","CCA>CAA","CCC>CA
 
 genome_freqs_labels <- str_sub(trint_subs_labels,1,3)
 
-#Helper function to reduce 64 to 32 trinucleotide frequency with central pyrimidine. Input is integer array with named elements that results from the trinucleotideFrequency function of Biostrings.
+#All possible trinucleotides
+trinucleotides_64 <- apply(expand.grid(c("A","C","G","T"),c("A","C","G","T"),c("A","C","G","T")),1,paste,collapse="")
+trinucleotides_32_pyr <- apply(expand.grid(c("A","C","G","T"),c("C","T"),c("A","C","G","T")),1,paste,collapse="")
+trinucleotides_32_pur <- setdiff(trinucleotides_64,trinucleotides_32_pyr)
+
+#Function to reduce 64 to 32 trinucleotide frequency with central pyrimidine. Input is integer array with named elements that results from the trinucleotideFrequency function of Biostrings.
 trinucleotide64to32 <- function(x){
 	trinucleotides_64 <- apply(expand.grid(c("A","C","G","T"),c("A","C","G","T"),c("A","C","G","T")),1,paste,collapse="")
 	trinucleotides_32_pyr <- apply(expand.grid(c("A","C","G","T"),c("C","T"),c("A","C","G","T")),1,paste,collapse="")
@@ -18,4 +23,15 @@ trinucleotide64to32 <- function(x){
 	result <- merge(x,y,by=0)
 	row.names(result) <- result[,1]
 	return(apply(result[,-1],1,sum))
+}
+
+#Function to reduce 64 to 32 trinucleotide frequency with central pyrimidine. Input is vector of trinucleotide strings.
+trinucleotide64to32vector <- function(x){
+	suppressPackageStartupMessages(library(Biostrings))
+	trinucleotides_64 <- apply(expand.grid(c("A","C","G","T"),c("A","C","G","T"),c("A","C","G","T")),1,paste,collapse="")
+	trinucleotides_32_pyr <- apply(expand.grid(c("A","C","G","T"),c("C","T"),c("A","C","G","T")),1,paste,collapse="")
+	trinucleotides_32_pur <- setdiff(trinucleotides_64,trinucleotides_32_pyr)
+	
+	x[x %in% trinucleotides_32_pur] <- as.character(reverseComplement(DNAStringSet(x[x %in% trinucleotides_32_pur])))
+	return(x)
 }

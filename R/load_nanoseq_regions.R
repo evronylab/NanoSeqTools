@@ -43,23 +43,46 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 		
 		message(paste0("  ",sample_name))
 		
-		#Load NanoSeq bed coverage data for each region after first reducing overlapping ranges.
+		#Load NanoSeq bed coverage data for each 'region set'. Begins by first importing coverage data for all regions together for efficiency,
+		# and then separating them by region.
+		# Note, NanoSeq bed coverage data does not depend on strand information, since the coverage and trinucleotide background are the same regardless of strand.
 		# Note, using tabix binary since it is much faster than R tabix tools.
 		# Note, import function transforms bed coordinates to 1-based coordinates.
+		
+		 #Load bed coverage information for all regions across all region sets.
 		tmp.regions.all <- tempfile()
 		regions.list %>% unlist %>% reduce %>% export(con=tmp.regions.all,format="bed")
 		
 		tmp.bedcov.all <- tempfile()
-		system(paste(tabix_bin,paste0(dir,"results.cov.bed.gz"),"-R",tmp.regions,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}'>",tmp.bedcov.all))
+		system(paste(tabix_bin,paste0(dir,"results.cov.bed.gz"),"-R",tmp.regions.all,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}'>",tmp.bedcov.all))
 		
 		bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
 		colnames(mcols(bedcov.all)) <- c("coverage","tri","ref")
 		
-		file.remove(tmp.regions.all,tmp.bedcov.all)
+		invisible(file.remove(tmp.regions.all,tmp.bedcov.all))
 		
-		bedcov[[sample_name]] <- findOverlaps(**)
+		 #Extract bed coverage information for each region set
+		bedcov[[sample_name]] <- lapply(regions.list,function(x) subsetByOverlaps(bedcov.all,x,type="within"))
+		
+		 #Calculate trinucleotide counts for each region set
+		bedcov[[sample_name]] <- lapply(bedcov[[sample_name]],function(x){
+			rep(x$tri,x$coverage) %>%
+				as.data.frame %>%
+				set_names("tri") %>%
+				count(tri) %>%
+				left_join(data.frame(tri=trinucleotides_64),.,by="tri") %>%
+				replace(is.na(.),0) %>%
+				deframe %>%
+				trinucleotide64to32 %>%
+				as_tibble(rownames="tri") %>%
+				dplyr::rename(count=value)
+		})
 		
 	}
+	
+	# Collapse lists to data frames
+	message("Combining sample data into data frames...")
+	bedcov <- bedcov %>% map(function(x) bind_rows(x,.id="regions")) %>% bind_rows(.id="sample")
 	
 	
 	results <- list(

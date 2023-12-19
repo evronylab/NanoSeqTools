@@ -7,7 +7,7 @@ This R package contains functions for NanoSeq data analysis. For more informatio
 - [Installation](#installation)
 - [Usage](#usage)
   - [load_nanoseq_data](#load_nanoseq_data)
-  - [load_nanoseq_bedcov](#load_nanoseq_bedcov)
+  - [load_nanoseq_regions](#load_nanoseq_regions)
 - [Citation](#citation)
 
 ## Prerequisites

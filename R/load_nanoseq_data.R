@@ -49,8 +49,8 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   results.SSC_mismatches_pyrimidine <- list()
   results.estimated_error_rates <- list()
   
-  #Calculate reference genome trinucloetide counts, reduced to 32 trinucleotide contexts
-  message("Calculating reference genome trinucloetide counts...")
+  #Calculate reference genome trinucleotide counts, reduced to 32 trinucleotide contexts
+  message("Calculating reference genome trinucleotide counts...")
   genome_trinuc_counts <- NULL
   for(i in BSgenomecontigs){
     genome_trinuc_counts <- rbind(genome_trinuc_counts,trinucleotideFrequency(eval(parse(text=BSgenomepackagename))[[i]]))
@@ -137,8 +137,8 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     results.estimated_error_rates[[sample_name]] <- read.delim(paste0(dir,"/results.estimated_error_rates.tsv"), header=FALSE, row.names=1) %>% t %>% as.data.frame %>% remove_rownames
   }
   
-  message("Combining sample data into data frames...")
   # Collapse lists to data frames
+  message("Combining sample data into data frames...")
   results.trint_counts_and_ratio2genome <- bind_rows(results.trint_counts_and_ratio2genome,.id="sample")
   results.trint_subs_obs_corrected <- bind_rows(results.trint_subs_obs_corrected,.id="sample")
   results.mut_burden <- bind_rows(results.mut_burden,.id="sample")
