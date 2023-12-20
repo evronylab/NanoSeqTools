@@ -32,5 +32,5 @@ Returns NanoSeq results for each 'region set'.
 Package requirements: tidyverse, rtracklayer, GenomicRanges, tabix binary
 }
 \details{
-For more information regarding NanoSeq output files, refer to the "output" section in the \href{https://github.com/cancerit/NanoSeq}{NanoSeq GitHub}.
+For more information regarding NanoSeq output files, refer to the "output" section in the \href{https://github.com/cancerit/NanoSeq#output}{NanoSeq GitHub}.
 }
