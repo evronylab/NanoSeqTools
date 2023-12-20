@@ -88,13 +88,17 @@ A list containing the following data objects:
 * estimated_error_rates: Data frame of the probability of having independent errors affecting both strands and resulting in a false-positive double-strand mutation and the number of estimated false positive double-strand mutations, based on the independent error rates in the purine channels. Columns: sample, total_error_rate, total_errors.
 
 ### load_nanoseq_regions
-Load all files for analysis of NanoSeq data
+Load NanoSeq coverage and trinculeotide spectrum for burden analysis of specific genomic regions
 
 ##### Arguments
-* 
+* nanoseq_data: Dataset resulting from load_nanoseq_data function
+
+* regions.list: GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). The strand of each region in the region set specifies for each region, which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. When there are overlapping regions with opposite strands, the mutations are counted only once regardless of the strand. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
+
+* tabix_bin: Full path to tabix binary
 
 #### Outputs
 * 
 
 ## Citation
-If you use NanoSeqTools, please cite Srinivasa A, Evrony GD, [TBD].
+If you use NanoSeqTools, please cite Srinivasa A and Evrony GD. (2024). NanoSeqTools [Computer software]. https://github.com/evronylab/NanoSeqTools

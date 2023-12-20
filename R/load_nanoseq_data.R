@@ -146,7 +146,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   results.SSC_mismatches_pyrimidine <- bind_rows(results.SSC_mismatches_pyrimidine,.id="sample")
   results.estimated_error_rates <- bind_rows(results.estimated_error_rates,.id="sample")
   
-  #Create sigfit format data frames, with samples in rows and trinucleotide contexts in columns, for::
+  #Create sigfit format data frames, with samples in rows and trinucleotide contexts in columns, for:
   # a) sample trinucleotide background counts
   # b) ratios of the sample trinucleotide background counts to the genome trinucleotide background counts
   # c) observed unique mutation counts. Note: using unique mutation counts, since that is a more faithful representation of the mutational process.
