@@ -2,7 +2,7 @@
 #' 
 #' Package requirements: tidyverse, vcfR, BSgenome package corresponding to the reference genome used in the NanoSeq analysis
 #'
-#' This function loads all the files for analysis of NanoSeq data. For more information regarding NanoSeq output files, refer to the "output" section in the [NanoSeq GitHub](https://github.com/cancerit/NanoSeq).
+#' This function loads NanoSeq data required for genome-wide analysis. For more information regarding NanoSeq output files, refer to the "output" section in the [NanoSeq GitHub](https://github.com/cancerit/NanoSeq).
 #'
 #' @param dirs A character vector of the directories containing NanoSeq results to load (one directory per sample).
 #' @param sample_names A character vector of the sample names to assign to the results, in the same order as the directories in 'dirs'.

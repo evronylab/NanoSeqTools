@@ -86,7 +86,9 @@ Load NanoSeq data for region-specific analysis.
 
 * regions.list: GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). The strand of each region in the region set specifies for each region, which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. When there are overlapping regions with opposite strands, the mutations are counted only once regardless of the strand. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
 
-* tabix_bin: Full path to tabix binary
+* excluded_samples: Names of samples excluded from the results because they do not have NanoSeq read coverage in any regions
+
+* tabix_bin: Full path of tabix binary
 
 #### Outputs
 * sample_names: A vector of all sample IDs that were loaded
