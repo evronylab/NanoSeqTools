@@ -58,12 +58,14 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   colnames(genome_trinuc_counts)[2] <- "genome_tri_bg"
   
   message("Loading sample data...")
-  for (i in 1:length(dirs)) {
+  pb <- txtProgressBar(min=0,max=100,style=3)
+  
+  for(i in 1:length(dirs)){
     
     dir <- dirs[i]
     sample_name <- sample_names[i]
 
-    message(paste0("  ",sample_name))
+    setTxtProgressBar(pb,i/length(dirs)*100)
 
     # Load vcf files
     vcf_snp <- read.vcfR(paste0(dir,"/results.muts.vcf.gz"),verbose=FALSE)
@@ -135,6 +137,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     
     results.estimated_error_rates[[sample_name]] <- read.delim(paste0(dir,"/results.estimated_error_rates.tsv"), header=FALSE, row.names=1) %>% t %>% as.data.frame %>% remove_rownames
   }
+  close(pb)
   
   # Collapse lists to data frames
   message("Combining sample data into data frames...")

@@ -35,12 +35,14 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 	dirs <- nanoseq_data$dirs
 	
 	message("Loading sample data...")
-	for (i in 1:length(dirs)) {
+	pb <- txtProgressBar(min=0,max=100,style=3)
+	
+	for(i in 1:length(dirs)){
 		
 		dir <- dirs[i]
 		sample_name <- sample_names[i]
 		
-		message(paste0("  ",sample_name))
+		setTxtProgressBar(pb,i/length(dirs)*100)
 		
 		#Load NanoSeq bed coverage data for each 'region set'. Begins by first importing coverage data for all regions together for efficiency,
 		# and then separating them by region.
@@ -58,7 +60,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 		bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
 		#Skip samples without coverage in any regions
 		if(length(bedcov.all)==0){
-			message(paste("    ... Skipping",sample_name,"- no coverage in any regions."))
+			message(paste("    ... Skipping sample",sample_name,"- no coverage in any regions."))
 			excluded_samples <- c(excluded_samples,i)
 			next
 		}
@@ -153,6 +155,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 		})
 		
 	}
+	close(pb)
 
 	
 	# Collapse lists to data frames
