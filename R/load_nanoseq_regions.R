@@ -7,7 +7,7 @@
 #' @param nanoseq_data Dataset resulting from load_nanoseq_data function
 #' @param regions.list GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). The strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
 #' @param tabix_bin Full path to tabix binary
-#' @return Returns NanoSeq results for each 'region set'.
+#' @return Returns NanoSeq results for each 'region set'. Samples without coverage of any of the regions are skipped and absent from the output.
 #' * sample_names: A vector of all sample IDs that were loaded
 #' * dir: A vector of the directories containing the NanoSeq results that were loaded
 #' * regions.list: Copy of input regions.list
@@ -27,6 +27,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 	suppressPackageStartupMessages(library(GenomicRanges))
 	
 	#Initialize lists for results
+	excluded_samples <- c()
 	trinuc_bg_counts_ratio <- list()
 	vcf_snp.fix.gr <- list()
 	mutation_burden <- list()
@@ -52,15 +53,22 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 		regions.list %>% unlist %>% reduce %>% export(con=tmp.regions.all,format="bed")
 		
 		tmp.bedcov.all <- tempfile()
-		system(paste(tabix_bin,paste0(dir,"/results.cov.bed.gz"),"-R",tmp.regions.all,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}'>",tmp.bedcov.all))
+		system(paste(tabix_bin,paste0(dir,"/results.cov.bed.gz"),"-R",tmp.regions.all,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
 		
 		bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
+		#Skip samples without coverage in any regions
+		if(length(bedcov.all)==0){
+			message(paste("    ... Skipping",sample_name,"- no coverage in any regions."))
+			excluded_samples <- c(excluded_samples,i)
+			next
+		}
 		colnames(mcols(bedcov.all)) <- c("coverage","tri","ref")
 		
 		invisible(file.remove(tmp.regions.all,tmp.bedcov.all))
 		
 		 #Extract bed coverage information for each region set
-		trinuc_bg_counts_ratio[[sample_name]] <- map(regions.list,function(x) subsetByOverlaps(bedcov.all,x,type="within"))
+		 # Note, suppressing warnings for situations when there is a chromosome in the region.list that does not have coverage data.
+		trinuc_bg_counts_ratio[[sample_name]] <- map(regions.list,function(x) suppressWarnings(subsetByOverlaps(bedcov.all,x,type="within")))
 		
 		#Calculate trinucleotide counts for each region set
 		trinuc_bg_counts_ratio[[sample_name]] <- map(trinuc_bg_counts_ratio[[sample_name]],function(x){
@@ -100,8 +108,9 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 		#Extract mutations in each region set, taking into account strand information.
 		# Note, trint_subst_corrected and trint_subst_unique_corrected can have values of NaN when both the numerator and denominator
 		# values used to calculate them are both 0, and they can have values of Inf when only the denominator is 0.
+		# Note, suppressing warnings for situations when there is a chromosome with no mutations that is in the region set.
 		vcf_snp.fix.gr[[sample_name]] <- map(regions.list,function(x){
-		  subsetByOverlaps(vcf_snp.fix.gr[[sample_name]],x,type="within",ignore.strand=FALSE) %>%
+			suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr[[sample_name]],x,type="within",ignore.strand=FALSE)) %>%
 		    as_tibble %>%
 		    add_count(tri,name="trint_subst_observed") %>%
 		    group_by(seqnames,start,tri) %>%
@@ -198,8 +207,8 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 	  })
 	
 	results <- list(
-		sample_names = sample_names,
-		dirs = dirs,
+		sample_names = sample_names[-excluded_samples],
+		dirs = dirs[-excluded_samples],
 		regions.list = regions.list,
 		trinuc_bg_counts_ratio = trinuc_bg_counts_ratio,
 		trinuc_bg_counts.sigfit = trinuc_bg_counts.sigfit,

@@ -27,14 +27,3 @@ trinucleotide64to32 <- function(x){
 	row.names(result) <- result[,1]
 	return(apply(result[,-1],1,sum))
 }
-
-#Function to reduce 64 to 32 trinucleotide frequency with central pyrimidine. Input is vector of trinucleotide strings.
-trinucleotide64to32vector <- function(x){
-	suppressPackageStartupMessages(library(Biostrings))
-	trinucleotides_64 <- apply(expand.grid(c("A","C","G","T"),c("A","C","G","T"),c("A","C","G","T")),1,paste,collapse="")
-	trinucleotides_32_pyr <- apply(expand.grid(c("A","C","G","T"),c("C","T"),c("A","C","G","T")),1,paste,collapse="")
-	trinucleotides_32_pur <- setdiff(trinucleotides_64,trinucleotides_32_pyr)
-	
-	x[x %in% trinucleotides_32_pur] <- as.character(reverseComplement(DNAStringSet(x[x %in% trinucleotides_32_pur])))
-	return(x)
-}
