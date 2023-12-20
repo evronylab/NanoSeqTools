@@ -22,8 +22,7 @@
 
 load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 
-	#Load packages
-	suppressPackageStartupMessages(library(tidyverse))
+	#Load packages required only by this function
 	suppressPackageStartupMessages(library(rtracklayer))
 	suppressPackageStartupMessages(library(GenomicRanges))
 	
