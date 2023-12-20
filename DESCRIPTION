@@ -2,8 +2,8 @@ Package: NanoSeqTools
 Title: An R package containing functions for analysis of NanoSeq data.
 Version: 0.0.0.9000
 Authors@R: 
-    c(person("Amoolya", "Srinivasa", , "amoolya.srinivasa@nyulangone.org", role = c("aut", "cre")),
-    person("Gilad", "Evrony", , "gilad.evrony@nyulangone.org", role = c("aut", "cre")))
+    c(person("Amoolya", "Srinivasa", , "amoolya.srinivasa@nyulangone.org", role = c("cre", "aut")),
+    person("Gilad", "Evrony", , "gilad.evrony@nyulangone.org", role = c("aut")))
 Description: An R package containing functions for analysis of NanoSeq data. See README for details.
 License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
     license
