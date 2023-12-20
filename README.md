@@ -34,19 +34,10 @@ devtools::install_github('https://github.com/evronylab/NanoSeqTools/')
 
 ## Usage
 ### load_nanoseq_data
-Load all files for analysis of NanoSeq data
-```
-load_nanoseq_data(dirs, suffix_to_remove, BSgenomepackagename, BSgenomecontigs)
-```
+Load NanoSeq data for genome-wide analysis.
 
 ##### Arguments
-* dirs: List of all the directories with NanoSeq results to load.
-
-The list of directories can be generated with:
-```
-list.dirs(normalizePath(directory_path), full.names = TRUE, recursive = FALSE)
-```
-where directory_path is a parent directory containing all the directories.
+* dirs: A character vector of the directories containing NanoSeq results to load (one directory per sample).
 
 * sample_names: A character vector of the sample names to assign to the results, in the same order as the directories in 'dirs'.
 
@@ -88,7 +79,7 @@ A list containing the following data objects:
 * estimated_error_rates: Data frame of the probability of having independent errors affecting both strands and resulting in a false-positive double-strand mutation and the number of estimated false positive double-strand mutations, based on the independent error rates in the purine channels. Columns: sample, total_error_rate, total_errors.
 
 ### load_nanoseq_regions
-Load NanoSeq coverage and trinculeotide spectrum for burden analysis of specific genomic regions
+Load NanoSeq data for region-specific analysis.
 
 ##### Arguments
 * nanoseq_data: Dataset resulting from load_nanoseq_data function
@@ -98,7 +89,25 @@ Load NanoSeq coverage and trinculeotide spectrum for burden analysis of specific
 * tabix_bin: Full path to tabix binary
 
 #### Outputs
-* 
+* sample_names: A vector of all sample IDs that were loaded
+
+* dir: A vector of the directories containing the NanoSeq results that were loaded
+
+* regions.list: Copy of input regions.list
+
+* trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these for each sample/region combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
+
+* trinuc_bg_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
+
+* trinuc_bg_ratio.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
+
+* genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
+
+* observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts (for all mutations and for unique mutations) for each sample/region combination. Columns: sample, region, tri (trinucleotide context), trint_subst_observed, trint_subst_unique_observed, ratio2genome, trint_subst_corrected, trint_subst_unique_corrected.
+
+* observed_trinuc_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
+
+* mutation_burden: Data frame of the total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, for each sample/region combination. All these statistics include all mutations, not just unique mutations.
 
 ## Citation
 If you use NanoSeqTools, please cite Srinivasa A and Evrony GD. (2024). NanoSeqTools [Computer software]. https://github.com/evronylab/NanoSeqTools

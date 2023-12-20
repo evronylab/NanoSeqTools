@@ -366,7 +366,7 @@ GitHub</a>.</p>
 <li><a href="#usage">Usage</a>
 <ul>
 <li><a href="#load_nanoseq_data">load_nanoseq_data</a></li>
-<li><a href="#load_nanoseq_bedcov">load_nanoseq_bedcov</a></li>
+<li><a href="#load_nanoseq_regions">load_nanoseq_regions</a></li>
 </ul></li>
 <li><a href="#citation">Citation</a></li>
 </ul>
@@ -376,10 +376,12 @@ GitHub</a>.</p>
 <ul>
 <li><p><a href="https://www.tidyverse.org/packages/">Tidyverse</a></p></li>
 <li><p><a href="https://github.com/knausb/vcfR">vcfR</a></p></li>
-<li><p><a href="https://bioconductor.org/packages/release/bioc/html/Rsamtools.html">Rsamtools</a></p></li>
-<li><p><a href="https://bioconductor.org/packages/release/bioc/html/GenomicRanges.html">GenomicRanges</a></p></li>
+<li><p><a href="https://bioconductor.org/packages/release/bioc/html/Rsamtools.html">rtracklayer</a></p></li>
+<li><p><a href="https://bioconductor.org/packages/release/bioc/html/rtracklayer.html">GenomicRanges</a></p></li>
 <li><p>BSgenome package corresponding to the reference genome used in
 the NanoSeq analysis</p></li>
+<li><p><a href="http://www.htslib.org/download/">tabix</a> &gt;=v1.10;
+part of htslib</p></li>
 </ul>
 </div>
 <div id="installation" class="section level2">
@@ -393,18 +395,12 @@ devtools::install_github(&#39;https://github.com/evronylab/NanoSeqTools/&#39;)</
 <h2>Usage</h2>
 <div id="load_nanoseq_data" class="section level3">
 <h3>load_nanoseq_data</h3>
-<p>Load all files for analysis of NanoSeq data</p>
-<pre><code>load_nanoseq_data(dirs, suffix_to_remove, BSgenomepackagename, BSgenomecontigs)</code></pre>
+<p>Load NanoSeq data for genome-wide analysis</p>
 <div id="arguments" class="section level5">
 <h5>Arguments</h5>
 <ul>
-<li>dirs: List of all the directories with NanoSeq results to load.</li>
-</ul>
-<p>The list of directories can be generated with:</p>
-<pre><code>list.dirs(normalizePath(directory_path), full.names = TRUE, recursive = FALSE)</code></pre>
-<p>where directory_path is a parent directory containing all the
-directories.</p>
-<ul>
+<li><p>dirs: A character vector of the directories containing NanoSeq
+results to load (one directory per sample).</p></li>
 <li><p>sample_names: A character vector of the sample names to assign to
 the results, in the same order as the directories in ‘dirs’.</p></li>
 <li><p>BSgenomepackagename: A string of a BSgenome package corresponding
@@ -422,7 +418,8 @@ BSgenome.Mmusculus.UCSC.mm10).</p></li>
 <h4>Outputs</h4>
 <p>A list containing the following data objects:</p>
 <ul>
-<li><p>sample_id: A vector of all sample IDs that were loaded</p></li>
+<li><p>sample_names: A vector of all sample IDs that were
+loaded</p></li>
 <li><p>dirs: A vector of the directories containing the NanoSeq results
 that were loaded</p></li>
 <li><p>vcf_snp.fix: List (one object per sample) containing the fixed
@@ -482,27 +479,81 @@ total_errors.</p></li>
 </ul>
 </div>
 </div>
-<div id="load_nanoseq_bedcov" class="section level3">
-<h3>load_nanoseq_bedcov</h3>
-<p>Load all files for analysis of NanoSeq data</p>
+<div id="load_nanoseq_regions" class="section level3">
+<h3>load_nanoseq_regions</h3>
+<p>Load NanoSeq data for region-specific analysis</p>
 <div id="arguments-1" class="section level5">
 <h5>Arguments</h5>
 <ul>
-<li></li>
+<li><p>nanoseq_data: Dataset resulting from load_nanoseq_data
+function</p></li>
+<li><p>regions.list: GRangesList object, comprised of GRanges that each
+contains a ‘region set’ to jointly analyze. The regions within each
+‘region set’ can have overlaps (the functions handle this). The strand
+of each region in the region set specifies for each region, which
+mutations to include: ‘+ and’-’ strand include mutations where central
+pyrimidine is on the ‘+’ and ‘-’ strands of the reference genome,
+respectively, and ’*’ includes all mutations. When there are overlapping
+regions with opposite strands, the mutations are counted only once
+regardless of the strand. Best practice is to name the elements of
+regions.list, since these names are carried forward to the
+output.</p></li>
+<li><p>tabix_bin: Full path to tabix binary</p></li>
 </ul>
 </div>
 <div id="outputs-1" class="section level4">
 <h4>Outputs</h4>
 <ul>
-<li></li>
+<li><p>sample_names: A vector of all sample IDs that were
+loaded</p></li>
+<li><p>dir: A vector of the directories containing the NanoSeq results
+that were loaded</p></li>
+<li><p>regions.list: Copy of input regions.list</p></li>
+<li><p>trinuc_bg_counts_ratio: Data frame of the sample trinucleotide
+background counts (i.e. number of interrogated bases for each
+trinucleotide context), the genome trinucleotide background counts
+(i.e. number of each trinucleotide context), and the normalized ratio of
+these for each sample/region combination. Columns: sample, region, tri
+(trinucleotide context), sample_tri_bg, genome_tri_bg,
+ratio2genome.</p></li>
+<li><p>trinuc_bg_counts.sigfit: List with one object per region set,
+each comprised of a data frame in sigfit format of the sample
+trinucleotide background counts, with one row per sample and one column
+per trinucleotide context.</p></li>
+<li><p>trinuc_bg_ratio.sigfit: List with one object per region set, each
+comprised of a data frame in sigfit format of the ratio of the sample
+trinucleotide background counts (normalized to a sum of 1) to the genome
+trinucleotide background counts (normalized to a sum of 1), with one row
+per sample and one column per trinucleotide context.</p></li>
+<li><p>genome_trinuc_counts.sigfit: Vector of the genome trinucleotide
+background counts, in the same order as columns in sigfit format
+columns.</p></li>
+<li><p>observed_corrected_trinuc_counts: Data frame of observed and
+corrected mutation counts (for all mutations and for unique mutations)
+for each sample/region combination. Columns: sample, region, tri
+(trinucleotide context), trint_subst_observed,
+trint_subst_unique_observed, ratio2genome, trint_subst_corrected,
+trint_subst_unique_corrected.</p></li>
+<li><p>observed_trinuc_counts.sigfit: List with one object per region
+set, each comprised of a data frame in sigfit format of unique observed
+mutation counts, with one row per sample and one column per
+trinucleotide substitution context.</p></li>
+<li><p>mutation_burden: Data frame of the total number of observed and
+corrected mutations, total number of observed and corrected interrogated
+bases (note: observed and corrected are the same), observed and
+corrected mutation burdens, observed and corrected lower and upper
+confidence intervals of mutation counts, and observed and corrected
+lower and upper confidence intervals of mutation burdens, for each
+sample/region combination. All these statistics include all mutations,
+not just unique mutations.</p></li>
 </ul>
 </div>
 </div>
 </div>
 <div id="citation" class="section level2">
 <h2>Citation</h2>
-<p>If you use NanoSeqTools, please cite Srinivasa A, Evrony GD,
-[TBD].</p>
+<p>If you use NanoSeqTools, please cite Srinivasa A and Evrony GD.
+(2024). NanoSeqTools [Computer software]. <a href="https://github.com/evronylab/NanoSeqTools" class="uri">https://github.com/evronylab/NanoSeqTools</a></p>
 </div>
 </div>
 

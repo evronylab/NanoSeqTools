@@ -1,4 +1,4 @@
-#' Load NanoSeq coverage and trinculeotide spectrum for burden analysis of specific genomic regions
+#' Load NanoSeq data for region-specific analysis
 #' 
 #' Package requirements: tidyverse, rtracklayer, GenomicRanges, tabix binary
 #'
@@ -11,13 +11,13 @@
 #' * sample_names: A vector of all sample IDs that were loaded
 #' * dir: A vector of the directories containing the NanoSeq results that were loaded
 #' * regions.list: Copy of input regions.list
-#' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context) for each region, the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
+#' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these for each sample/region combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 #' * trinuc_bg_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 #' * trinuc_bg_ratio.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
 #' * genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
-#' * observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts (for all mutations and for unique mutations) for each region. Columns: sample, region, tri (trinucleotide context), trint_subst_observed, trint_subst_unique_observed, ratio2genome, trint_subst_corrected, trint_subst_unique_corrected.
+#' * observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts (for all mutations and for unique mutations) for each sample/region combination. Columns: sample, region, tri (trinucleotide context), trint_subst_observed, trint_subst_unique_observed, ratio2genome, trint_subst_corrected, trint_subst_unique_corrected.
 #' * observed_trinuc_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
-#' * mutation_burden: List with one object per region set, each comprised of a data frame with the total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, with one row per sample. All these statistics include all mutations, not just unique mutations.
+#' * mutation_burden: Data frame of the total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, for each sample/region combination. All these statistics include all mutations, not just unique mutations.
 #' @export
 
 load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
@@ -53,7 +53,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 		regions.list %>% unlist %>% reduce %>% export(con=tmp.regions.all,format="bed")
 		
 		tmp.bedcov.all <- tempfile()
-		system(paste(tabix_bin,paste0(dir,"results.cov.bed.gz"),"-R",tmp.regions.all,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}'>",tmp.bedcov.all))
+		system(paste(tabix_bin,paste0(dir,"/results.cov.bed.gz"),"-R",tmp.regions.all,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}'>",tmp.bedcov.all))
 		
 		bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
 		colnames(mcols(bedcov.all)) <- c("coverage","tri","ref")
@@ -99,7 +99,8 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 		    makeGRangesFromDataFrame(seqnames.field="CHROM",start.field="POS",end.field="POS",keep.extra.columns=TRUE)
 		
 		#Extract mutations in each region set, taking into account strand information.
-		# Note, trint_subst_corrected and trint_subst_unique_corrected can have values of NaN when both the numerator and denominator values used to calculate them are both 0, and they can have values of Inf when only the denominator is 0.
+		# Note, trint_subst_corrected and trint_subst_unique_corrected can have values of NaN when both the numerator and denominator
+		# values used to calculate them are both 0, and they can have values of Inf when only the denominator is 0.
 		vcf_snp.fix.gr[[sample_name]] <- map(regions.list,function(x){
 		  subsetByOverlaps(vcf_snp.fix.gr[[sample_name]],x,type="within",ignore.strand=FALSE) %>%
 		    as_tibble %>%
@@ -118,27 +119,29 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 		            y %>% dplyr::rename(tri_short=tri),by="tri_short") %>%
 		    mutate(trint_subst_corrected = trint_subst_observed / ratio2genome,
 		           trint_subst_unique_corrected = trint_subst_unique_observed / ratio2genome
-		           ) %>%
-		    dplyr::select(-c(tri_short,sample_tri_bg,genome_tri_bg))
+		           )
 		})
 		
-		#Calculate mutation burdens for each 'region set'
+		#Calculate mutation burdens for each 'region set'.
+		# Note, corrected burdens may be NaN when there are 0 observed/corrected mutations in a region.
 		mutation_burden[[sample_name]] <- map(vcf_snp.fix.gr[[sample_name]],function(x){
-		  data.frame(muts_observed = sum(x$trint_subst_observed),
-		             muts_corrected = sum(x$trint_subst_corrected),
-		             total_observed = sum(x$sample_tri_bg),
-		             total_corrected = sum(x$sample_tri_bg)
-      ) %>% mutate(
-		  burden_observed = muts_observed / total_observed,
-		  burden_corrected = muts_corrected / total_corrected,
-		  muts_lci_observed = poisson.test(muts_observed)$conf.int[1],
-		  muts_lci_corrected = muts_lci_observed / muts_observed * muts_corrected,
-		  muts_uci_observed = poisson.test(muts_observed)$conf.int[2],
-		  muts_uci_corrected = muts_uci_observed / muts_observed * muts_corrected,
-		  burden_lci_observed = muts_lci_observed / total_observed,
-		  burden_lci_corrected = muts_lci_corrected / total_corrected,
-		  burden_uci_observed = muts_uci_observed / total_observed,
-		  burden_uci_corrected = muts_uci_corrected / total_corrected
+		  data.frame(muts_observed = sum(x$trint_subst_observed,na.rm=TRUE),
+		             muts_corrected = sum(x$trint_subst_corrected,na.rm=TRUE),
+		             total_observed = sum(x$sample_tri_bg,na.rm=TRUE),
+		             total_corrected = sum(x$sample_tri_bg,na.rm=TRUE)
+      ) %>%
+			mutate(
+			  burden_observed = muts_observed / total_observed,
+			  burden_corrected = muts_corrected / total_corrected,
+			  muts_lci_observed = poisson.test(muts_observed)$conf.int[1],
+			  muts_lci_corrected = muts_lci_observed / muts_observed * muts_corrected,
+			  muts_uci_observed = poisson.test(muts_observed)$conf.int[2],
+			  muts_uci_corrected = muts_uci_observed / muts_observed * muts_corrected,
+			  burden_lci_observed = muts_lci_observed / total_observed,
+			  burden_lci_corrected = muts_lci_corrected / total_corrected,
+			  burden_uci_observed = muts_uci_observed / total_observed,
+			  burden_uci_corrected = muts_uci_corrected / total_corrected
+      )
 		})
 		
 	}
@@ -152,7 +155,8 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 	
 	observed_corrected_trinuc_counts <- vcf_snp.fix.gr %>%
 	  map(function(x) bind_rows(x,.id="region")) %>%
-	  bind_rows(.id="sample")
+	  bind_rows(.id="sample") %>%
+		dplyr::select(-c(tri_short,sample_tri_bg,genome_tri_bg))
 	
 	mutation_burden <- mutation_burden %>%
 	  map(function(x) bind_rows(x,.id="region")) %>%
