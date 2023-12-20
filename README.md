@@ -1,6 +1,6 @@
 # **NanoSeqTools**
 
-This R package contains functions for NanoSeq data analysis. For more information regarding NanoSeq output files, refer to the "output" section in the [NanoSeq GitHub](https://github.com/cancerit/NanoSeq).
+This R package contains functions for analysis of NanoSeq data that was processed with the standard [NanoSeq pipeline](https://github.com/cancerit/NanoSeq).
 
 ### Outline
 - [Prerequisites](#prerequisites)
