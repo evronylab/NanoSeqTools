@@ -221,11 +221,17 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 	    return(x)
 	  })
 	
+	#Remove excluded samples from output
+	if(!is.null(excluded_samples)){
+	  sample_names <- sample_names[-excluded_samples]
+	  dirs <- dirs[-excluded_samples]
+	}
+	
 	results <- list(
-		sample_names = sample_names[-excluded_samples],
-		dirs = dirs[-excluded_samples],
+		sample_names = sample_names,
+		dirs = dirs,
 		regions.list = regions.list,
-		excluded_samples <- sample_names[excluded_samples],
+		excluded_samples = sample_names[excluded_samples],
 		trinuc_bg_counts_ratio = trinuc_bg_counts_ratio,
 		trinuc_bg_counts.sigfit = trinuc_bg_counts.sigfit,
 		trinuc_bg_ratio.sigfit = trinuc_bg_ratio.sigfit,
