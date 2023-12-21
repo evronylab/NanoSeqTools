@@ -34,6 +34,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 	mutation_burden <- list()
 	
 	dirs <- nanoseq_data$dirs
+	sample_names <- nanoseq_data$sample_names
 	
 	message("Loading sample data...")
 	pb <- txtProgressBar(min=0,max=100,style=3)
