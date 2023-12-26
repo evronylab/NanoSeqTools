@@ -58,7 +58,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   results.estimated_error_rates <- list()
   
   #Calculate reference genome trinucleotide counts, reduced to 32 trinucleotide contexts
-  message("Calculating reference genome trinucleotide counts...")
+  message("Loading reference genome data...")
   genome_trinuc_counts <- NULL
   for(i in BSgenomecontigs){
     genome_trinuc_counts <- rbind(genome_trinuc_counts,trinucleotideFrequency(eval(parse(text=BSgenomepackagename))[[i]]))
