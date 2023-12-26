@@ -31,7 +31,7 @@ trinucleotide64to32 <- function(x){
 ## Function to import indels for spectrum analysis, modified from INDELWALD package:
 ## Max Stammnitz; maxrupsta@gmail.com; University of Cambridge  ##
 ## Citation: The evolution of two transmissible cancers in Tasmanian devils (Stammnitz et al. 2023, Science 380:6642)
-indel.spectrum <- function(x,BSgenome.StringSet){
+indel.spectrum <- function(x,reference){
   
   ## 1. split VCF indels into:
   # (i) 1-bp deletions

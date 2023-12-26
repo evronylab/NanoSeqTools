@@ -66,6 +66,9 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   genome_trinuc_counts <- genome_trinuc_counts %>% colSums %>% trinucleotide64to32 %>% as.data.frame %>% rownames_to_column("tri")
   colnames(genome_trinuc_counts)[2] <- "genome_tri_bg"
   
+  #Convert BSgenome to StringSet object for indel spectrum loading
+  BSgenome.StringSet <- as(sapply(seqnames(eval(parse(text=BSgenomepackagename))),function(x){eval(parse(text=BSgenomepackagename))[[x]]}),"DNAStringSet")
+  
   message("Loading sample data...")
   pb <- txtProgressBar(min=0,max=100,style=3)
   
@@ -85,7 +88,6 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     vcf_indel.gt[[sample_name]] <- data.frame(vcf_indel@gt) %>% filter(data.frame(vcf_indel@fix)$FILTER == "PASS")
     
     # Calculate indel spectra
-    BSgenome.StringSet <- as(sapply(seqnames(eval(parse(text=BSgenomepackagename))),function(x){eval(parse(text=BSgenomepackagename))[[x]]}),"DNAStringSet")
     indel.spectra[[sample_name]] <- indel.spectrum(vcf_indel.fix[[sample_name]] %>% select(CHROM,POS,REF,ALT),BSgenome.StringSet)
     
     # Load sample and genome trinucleotide background counts, and calculate ratio
