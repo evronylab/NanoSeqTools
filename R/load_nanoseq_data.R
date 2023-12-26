@@ -85,7 +85,8 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     vcf_indel.gt[[sample_name]] <- data.frame(vcf_indel@gt) %>% filter(data.frame(vcf_indel@fix)$FILTER == "PASS")
     
     # Calculate indel spectra
-    indel.spectra[[sample_name]] <- indel.spectrum(vcf_indel.fix[[sample_name]] %>% select(CHROM,POS,REF,ALT),eval(parse(text=BSgenomepackagename)))
+    BSgenome.StringSet <- as(sapply(seqnames(eval(parse(text=BSgenomepackagename))),function(x){eval(parse(text=BSgenomepackagename))[[x]]}),"DNAStringSet")
+    indel.spectra[[sample_name]] <- indel.spectrum(vcf_indel.fix[[sample_name]] %>% select(CHROM,POS,REF,ALT),BSgenome.StringSet)
     
     # Load sample and genome trinucleotide background counts, and calculate ratio
     results.trint_counts_and_ratio2genome[[sample_name]] <- read.delim(paste0(dir,"/results.trint_counts_and_ratio2genome.tsv"),header=FALSE,skip=1) %>%

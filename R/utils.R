@@ -31,7 +31,7 @@ trinucleotide64to32 <- function(x){
 ## Function to import indels for spectrum analysis, modified from INDELWALD package:
 ## Max Stammnitz; maxrupsta@gmail.com; University of Cambridge  ##
 ## Citation: The evolution of two transmissible cancers in Tasmanian devils (Stammnitz et al. 2023, Science 380:6642)
-indel.spectrum <- function(x,BSgenome){
+indel.spectrum <- function(x,BSgenome.StringSet){
   
   ## 1. split VCF indels into:
   # (i) 1-bp deletions
@@ -74,7 +74,7 @@ indel.spectrum <- function(x,BSgenome){
   if(nrow(dels.1bp) > 0){
     
     ## extract 10 bp upstream/downstream sequence context from reference
-    dels.1bp.context <- as.character(subseq(BSgenome[[as.character(dels.1bp[,'CHROM'])]], 
+    dels.1bp.context <- as.character(subseq(x = reference[as.character(dels.1bp[,'CHROM'])], 
                                             start = as.numeric(dels.1bp[,'POS']) - 9, 
                                             end = as.numeric(dels.1bp[,'POS']) + 11))
     dels.1bp.context.middle <- paste0('[', str_split_fixed(dels.1bp.context, '', 21)[,11,drop=F], ']')
@@ -88,7 +88,7 @@ indel.spectrum <- function(x,BSgenome){
     colnames(dels.1bp)[5] <- 'CONTEXT FW' 
     
     ## need the central base to be pyrimidine-centred, i.e. C or T, hence also run reverseComplements on full contexts
-    dels.1bp.context.rc <- as.character(reverseComplement(subseq(BSgenome[[as.character(dels.1bp[,'CHROM'])]], 
+    dels.1bp.context.rc <- as.character(reverseComplement(subseq(x = reference[as.character(dels.1bp[,'CHROM'])], 
                                                                  start = as.numeric(dels.1bp[,'POS']) - 9, 
                                                                  end = as.numeric(dels.1bp[,'POS']) + 11)))
     dels.1bp.context.rc.middle <- paste0('[', str_split_fixed(dels.1bp.context.rc, '', 21)[,11,drop=F], ']')
@@ -282,7 +282,7 @@ indel.spectrum <- function(x,BSgenome){
   if(nrow(ins.1bp) > 0){
     
     ## extract 10 bp upstream/downstream sequence context from reference
-    ins.1bp.context <- as.character(subseq(BSgenome[[as.character(ins.1bp[,'CHROM'])]], 
+    ins.1bp.context <- as.character(subseq(x = reference[as.character(ins.1bp[,'CHROM'])], 
                                            start = as.numeric(ins.1bp[,'POS']) - 9, 
                                            end = as.numeric(ins.1bp[,'POS']) + 10))
     ## insertion after base pos. 10
@@ -297,7 +297,7 @@ indel.spectrum <- function(x,BSgenome){
     colnames(ins.1bp)[5] <- 'CONTEXT FW'
     
     ## need the central base to be pyrimidine-centred, i.e. C or T, hence also run reverseComplements on full contexts
-    ins.1bp.context.rc <- as.character(reverseComplement(subseq(BSgenome[[as.character(ins.1bp[,'CHROM'])]], 
+    ins.1bp.context.rc <- as.character(reverseComplement(subseq(x = reference[as.character(ins.1bp[,'CHROM'])], 
                                                                 start = as.numeric(ins.1bp[,'POS']) - 9, 
                                                                 end = as.numeric(ins.1bp[,'POS']) + 10)))
     ins.1bp.context.rc.middle <- paste0('[', as.character(reverseComplement(DNAStringSet(str_split_fixed(as.character(ins.1bp[,'ALT']), '', 2)[,2,drop=F]))), ']')
@@ -493,7 +493,7 @@ indel.spectrum <- function(x,BSgenome){
   if(nrow(dels.2bp) > 0){
     
     ## extract 5 x 2 bp upstream/downstream sequence context from reference
-    dels.2bp.context <- as.character(subseq(BSgenome[[as.character(dels.2bp[,'CHROM'])]], 
+    dels.2bp.context <- as.character(subseq(x = reference[as.character(dels.2bp[,'CHROM'])], 
                                             start = as.numeric(dels.2bp[,'POS']) - 9, 
                                             end = as.numeric(dels.2bp[,'POS']) + 2 + 10))
     dels.2bp.context.middle <- str_split_fixed(dels.2bp.context, '', 22)[,11:12,drop=F]
@@ -513,7 +513,7 @@ indel.spectrum <- function(x,BSgenome){
   if(nrow(dels.3bp) > 0){
     
     ## extract 5 x 3 bp upstream/downstream sequence context from reference
-    dels.3bp.context <- as.character(subseq(BSgenome[[as.character(dels.3bp[,'CHROM'])]], 
+    dels.3bp.context <- as.character(subseq(x = reference[as.character(dels.3bp[,'CHROM'])], 
                                             start = as.numeric(dels.3bp[,'POS']) - 14, 
                                             end = as.numeric(dels.3bp[,'POS']) + 3 + 15))
     dels.3bp.context.middle <- str_split_fixed(dels.3bp.context, '', 33)[,16:18,drop=F]
@@ -534,7 +534,7 @@ indel.spectrum <- function(x,BSgenome){
   if(nrow(dels.4bp) > 0){
     
     ## extract 5 x 4 bp upstream/downstream sequence context from reference
-    dels.4bp.context <- as.character(subseq(BSgenome[[as.character(dels.4bp[,'CHROM'])]], 
+    dels.4bp.context <- as.character(subseq(x = reference[as.character(dels.4bp[,'CHROM'])], 
                                             start = as.numeric(dels.4bp[,'POS']) - 19, 
                                             end = as.numeric(dels.4bp[,'POS']) + 4 + 20))
     dels.4bp.context.middle <- str_split_fixed(dels.4bp.context, '', 41)[,21:24,drop=F]
@@ -561,7 +561,7 @@ indel.spectrum <- function(x,BSgenome){
     
     ## extract 5 x 100 bp upstream/downstream sequence context from reference
     ## i.e. max. 100 bp repeat motif
-    dels.5bp.context <- as.character(subseq(BSgenome[[as.character(dels.5bp[,'CHROM'])]], 
+    dels.5bp.context <- as.character(subseq(x = reference[as.character(dels.5bp[,'CHROM'])], 
                                             start = as.numeric(dels.5bp[,'POS']) - 499, 
                                             end = as.numeric(dels.5bp[,'POS']) + 5 + 500))
     
@@ -1113,7 +1113,7 @@ indel.spectrum <- function(x,BSgenome){
   # (i) 2 bp insertions at simple repeats (length 0 == "no neighbouring simple repeat")
   if(nrow(ins.2bp) > 0){
     
-    ins.2bp.context <- as.character(subseq(BSgenome[[as.character(ins.2bp[,'CHROM'])]], 
+    ins.2bp.context <- as.character(subseq(x = reference[as.character(ins.2bp[,'CHROM'])], 
                                            start = as.numeric(ins.2bp[,'POS']) - 9, 
                                            end = as.numeric(ins.2bp[,'POS']) + 10))
     ins.2bp.context.middle <- as.character(ins.2bp[,'ALT'])
@@ -1132,7 +1132,7 @@ indel.spectrum <- function(x,BSgenome){
   # (ii) 3 bp insertions at simple repeats (length 0 == "no neighbouring simple repeat")
   if(nrow(ins.3bp) > 0){
     
-    ins.3bp.context <- as.character(subseq(BSgenome[[as.character(ins.3bp[,'CHROM'])]], 
+    ins.3bp.context <- as.character(subseq(x = reference[as.character(ins.3bp[,'CHROM'])], 
                                            start = as.numeric(ins.3bp[,'POS']) - 14, 
                                            end = as.numeric(ins.3bp[,'POS']) + 15))
     ins.3bp.context.middle <- as.character(ins.3bp[,'ALT'])
@@ -1152,7 +1152,7 @@ indel.spectrum <- function(x,BSgenome){
   # (iii) 4 bp insertions at simple repeats (length 0 == "no neighbouring simple repeat")
   if(nrow(ins.4bp) > 0){
     
-    ins.4bp.context <- as.character(subseq(BSgenome[[as.character(ins.4bp[,'CHROM'])]], 
+    ins.4bp.context <- as.character(subseq(x = reference[as.character(ins.4bp[,'CHROM'])], 
                                            start = as.numeric(ins.4bp[,'POS']) - 19, 
                                            end = as.numeric(ins.4bp[,'POS']) + 20))
     ins.4bp.context.middle <- as.character(ins.4bp[,'ALT'])
@@ -1174,7 +1174,7 @@ indel.spectrum <- function(x,BSgenome){
   # (iv) 5+ bp insertions at simple repeats (length 0 == "no neighbouring simple repeat")
   if(nrow(ins.5bp) > 0){
     
-    ins.5bp.context <- as.character(subseq(BSgenome[[as.character(ins.5bp[,'CHROM'])]], 
+    ins.5bp.context <- as.character(subseq(x = reference[as.character(ins.5bp[,'CHROM'])], 
                                            start = as.numeric(ins.5bp[,'POS']) - 499, 
                                            end = as.numeric(ins.5bp[,'POS']) + 500))
     
