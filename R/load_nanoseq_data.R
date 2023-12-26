@@ -81,10 +81,10 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
 
     # Load vcf files
     vcf_snp <- read.vcfR(paste0(dir,"/results.muts.vcf.gz"),verbose=FALSE)
-    vcf_snp.fix[[sample_name]] <- data.frame(vcf_snp@fix) %>% filter(FILTER == "PASS")
+    vcf_snp.fix[[sample_name]] <- data.frame(vcf_snp@fix) %>%	filter(FILTER == "PASS") %>% mutate(POS=as.numeric(POS))
     
     vcf_indel <- read.vcfR(paste0(dir,"/results.indel.vcf.gz"),verbose=FALSE)
-    vcf_indel.fix[[sample_name]] <- data.frame(vcf_indel@fix) %>% filter(FILTER == "PASS")
+    vcf_indel.fix[[sample_name]] <- data.frame(vcf_indel@fix) %>% filter(FILTER == "PASS") %>% mutate(POS=as.numeric(POS))
     vcf_indel.gt[[sample_name]] <- data.frame(vcf_indel@gt) %>% filter(data.frame(vcf_indel@fix)$FILTER == "PASS")
     
     # Calculate number of unique indel counts for each indel context
