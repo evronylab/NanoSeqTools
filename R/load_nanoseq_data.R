@@ -128,7 +128,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     results.mut_burden[[sample_name]] <- data.frame(
       muts_observed = sum(results.trint_subs_obs_corrected[[sample_name]]$trint_subst_observed),
       muts_corrected = sum(results.trint_subs_obs_corrected[[sample_name]]$trint_subst_corrected),
-      indels_observed = vcf_indel.fix[[sample_name]] %>% filter(FILTER=="PASS") %>% nrow,
+      indels_observed = vcf_indel.fix[[sample_name]] %>% nrow,
       total_observed = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg),
       total_corrected = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg)
     ) %>% mutate(
