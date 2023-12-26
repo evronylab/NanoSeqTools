@@ -58,7 +58,9 @@ A list containing the following data objects:
 
 * vcf_indel.gt: List (one object per sample) containing the genotype information (gt) from the indel vcf (only FILTER = PASS mutations)
 
-* indel.spectra.sigfit: Data frame in sigfit format containing the indel spectra (created with indelwald indel.spectrum function), with one row per sample and one column per indel context
+* indel.spectra.sigfit: Data frame in sigfit format of all observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context
+
+* indel.spectra.unique.sigfit: Data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context
 
 * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these. Columns: sample, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 
@@ -72,14 +74,14 @@ A list containing the following data objects:
 
 * observed_trinuc_counts.sigfit: Data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
 
-* mutation_burden, with one row per sample. All substitution mutation statistics include all mutations, not just unique mutations.
-  - The number of observed and corrected substitution mutations (muts_observed and muts_corrected)
-  - Number of observed indels (indels_observed)
-  - Total number of observed and corrected interrogated bases (total_observed and total_corrected; note: observed and corrected are the same)
-  - Observed and corrected substitution mutation burdens (burden_observed and burden_corrected)
-  - Observed indel mutation burden (burden_indels_observed)
-  - Observed and corrected lower and upper confidence intervals of substitution mutation counts and observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed)
-  - Observed and corrected lower and upper confidence intervals of substitution mutation burdens and observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed)
+* mutation_burden, with one row per sample. All substitution mutation statistics include all mutations, not just unique mutations. Indel statistics are calculated both for all and for unique mutations.
+	- The number of observed and corrected substitution mutations (muts_observed and muts_corrected)
+	- Number of all and unique observed indels (indels_observed, indels_unique_observed)
+	- Total number of observed and corrected interrogated bases (total_observed and total_corrected; note: observed and corrected are the same)
+	- Observed and corrected substitution mutation burdens (burden_observed and burden_corrected)
+	- All and unique observed indel mutation burden (burden_indels_observed and burden_indels_unique_observed)
+	- Observed and corrected lower and upper confidence intervals of substitution mutation counts and all and unique observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, indels_unique_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed, indels_unique_uci_observed)
+	- Observed and corrected lower and upper confidence intervals of substitution mutation burdens and all and unique observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_indels_unique_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed, burden_indels_unique_uci_observed)
 
 * purine_trinuc_mismatches: Data frame of the number of single-strand consensus purine mismatches. Columns: sample, tri (trinucleotide context), value.
 
