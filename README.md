@@ -58,9 +58,7 @@ A list containing the following data objects:
 
 * vcf_indel.gt: List (one object per sample) containing the genotype information (gt) from the indel vcf (only FILTER = PASS mutations)
 
-* indel.spectra.sigfit: Data frame in sigfit format of all observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context
-
-* indel.spectra.unique.sigfit: Data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context
+* indel.spectra.sigfit: Data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context
 
 * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these. Columns: sample, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 
@@ -70,9 +68,9 @@ A list containing the following data objects:
 
 * genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
 
-* observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts (for all mutations and for unique mutations). Columns: sample, tri (trinucleotide context), trint_subst_observed, trint_subst_unique_observed, ratio2genome, trint_subst_corrected, trint_subst_unique_corrected.
+* observed_corrected_trinuc_counts: Data frame of observed and corrected substitution mutation counts (for all mutations and for unique mutations). Columns: sample, tri (trinucleotide context), trint_subst_observed, trint_subst_unique_observed, ratio2genome, trint_subst_corrected, trint_subst_unique_corrected.
 
-* observed_trinuc_counts.sigfit: Data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
+* observed_trinuc_counts.sigfit: Data frame in sigfit format of unique observed substitution mutation counts, with one row per sample and one column per trinucleotide substitution context.
 
 * mutation_burden, with one row per sample. All substitution mutation statistics include all mutations, not just unique mutations. Indel statistics are calculated both for all and for unique mutations.
 	- The number of observed and corrected substitution mutations (muts_observed and muts_corrected)
