@@ -213,7 +213,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     vcf_snp.fix = vcf_snp.fix,
     vcf_indel.fix = vcf_indel.fix,
     vcf_indel.gt = vcf_indel.gt,
-  	indel.spectra.sigfit = indel.spectra.sigfit,
+    indel.spectra.sigfit = indel.spectra.sigfit,
     trinuc_bg_counts_ratio = results.trint_counts_and_ratio2genome,
     trinuc_bg_counts.sigfit = results.sample_tri_bg.sigfit,
     trinuc_bg_ratio.sigfit = results.ratio2genome.sigfit,
