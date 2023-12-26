@@ -14,13 +14,21 @@
 #' * vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations)
 #' * vcf_indel.fix: List (one object per sample) containing the fixed information (fix) from the indel vcf (only FILTER = PASS mutations)
 #' * vcf_indel.gt: List (one object per sample) containing the genotype information (gt) from the indel vcf (only FILTER = PASS mutations)
+#' * indel.spectra: List (one object per sample) containing the indel spectra (created with indelwald indel.spectrum function)
 #' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these. Columns: sample, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 #' * trinuc_bg_counts.sigfit: Data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 #' * trinuc_bg_ratio.sigfit: Data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
 #' * genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
 #' * observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts (for all mutations and for unique mutations). Columns: sample, tri (trinucleotide context), trint_subst_observed, trint_subst_unique_observed, ratio2genome, trint_subst_corrected, trint_subst_unique_corrected.
 #' * observed_trinuc_counts.sigfit: Data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
-#' * mutation_burden: The total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, with one row per sample. All these statistics include all mutations, not just unique mutations.
+#' * mutation_burden, with one row per sample. All substitution mutation statistics include all mutations, not just unique mutations.
+#'  - The number of observed and corrected substitution mutations (muts_observed and muts_corrected)
+#'  - Number of observed indels (indels_observed)
+#'  - Total number of observed and corrected interrogated bases (total_observed and total_corrected; note: observed and corrected are the same)
+#'  - Observed and corrected substitution mutation burdens (burden_observed and burden_corrected)
+#'  - Observed indel mutation burden (burden_indels_observed)
+#'  - Observed and corrected lower and upper confidence intervals of substitution mutation counts and observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed)
+#'  - Observed and corrected lower and upper confidence intervals of substitution mutation burdens and observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed)
 #' * purine_trinuc_mismatches: Data frame of the number of single-strand consensus purine mismatches. Columns: sample, tri (trinucleotide context), value.
 #' * pyrimidine_trinuc_mismatches: Data frame of the number of single-strand consensus pyrimidine mismatches. Columns: sample, tri (trinucleotide context), value.
 #' * estimated_error_rates: Data frame of the probability of having independent errors affecting both strands and resulting in a false-positive double-strand mutation and the number of estimated false positive double-strand mutations, based on the independent error rates in the purine channels. Columns: sample, total_error_rate, total_errors.
@@ -41,6 +49,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   vcf_snp.fix <- list()
   vcf_indel.fix <- list()
   vcf_indel.gt <- list()
+  indel.spectra <- list()
   results.trint_counts_and_ratio2genome <- list()
   results.trint_subs_obs_corrected <- list()
   results.mut_burden <- list()
@@ -74,6 +83,9 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     vcf_indel <- read.vcfR(paste0(dir,"/results.indel.vcf.gz"),verbose=FALSE)
     vcf_indel.fix[[sample_name]] <- data.frame(vcf_indel@fix) %>% filter(FILTER == "PASS")
     vcf_indel.gt[[sample_name]] <- data.frame(vcf_indel@gt) %>% filter(data.frame(vcf_indel@fix)$FILTER == "PASS")
+    
+    # Calculate indel spectra
+    indel.spectra[[sample_name]] <- indel.spectrum(vcf_indel.fix[[sample_name]] %>% select(CHROM,POS,REF,ALT))
     
     # Load sample and genome trinucleotide background counts, and calculate ratio
     results.trint_counts_and_ratio2genome[[sample_name]] <- read.delim(paste0(dir,"/results.trint_counts_and_ratio2genome.tsv"),header=FALSE,skip=1) %>%
@@ -110,19 +122,25 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     results.mut_burden[[sample_name]] <- data.frame(
       muts_observed = sum(results.trint_subs_obs_corrected[[sample_name]]$trint_subst_observed),
       muts_corrected = sum(results.trint_subs_obs_corrected[[sample_name]]$trint_subst_corrected),
+      indels_observed = vcf_indel.fix[[sample_name]] %>% filter(FILTER=="PASS") %>% nrow,
       total_observed = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg),
       total_corrected = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg)
     ) %>% mutate(
       burden_observed = muts_observed / total_observed,
       burden_corrected = muts_corrected / total_corrected,
+      burden_indels_observed = indels_observed / total_observed,
       muts_lci_observed = poisson.test(muts_observed)$conf.int[1],
       muts_lci_corrected = muts_lci_observed / muts_observed * muts_corrected,
+      indels_lci_observed = poisson.test(indels_observed)$conf.int[1],
       muts_uci_observed = poisson.test(muts_observed)$conf.int[2],
       muts_uci_corrected = muts_uci_observed / muts_observed * muts_corrected,
+      indels_uci_observed = poisson.test(indels_observed)$conf.int[2],
       burden_lci_observed = muts_lci_observed / total_observed,
       burden_lci_corrected = muts_lci_corrected / total_corrected,
+      burden_indels_lci_observed = indels_lci_observed / total_observed,
       burden_uci_observed = muts_uci_observed / total_observed,
-      burden_uci_corrected = muts_uci_corrected / total_corrected
+      burden_uci_corrected = muts_uci_corrected / total_corrected,
+      burden_indels_uci_observed = indels_uci_observed / total_observed
     )
     
     results.SSC_mismatches_purine[[sample_name]] <- read.delim(paste0(dir,"/results.SSC-mismatches-Purine.triprofiles.tsv"), header=FALSE) %>%

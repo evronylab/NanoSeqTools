@@ -70,7 +70,14 @@ A list containing the following data objects:
 
 * observed_trinuc_counts.sigfit: Data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
 
-* mutation_burden: The total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, with one row per sample. All these statistics include all mutations, not just unique mutations.
+* mutation_burden, with one row per sample. All substitution mutation statistics include all mutations, not just unique mutations.
+  - The number of observed and corrected substitution mutations (muts_observed and muts_corrected)
+  - Number of observed indels (indels_observed)
+  - Total number of observed and corrected interrogated bases (total_observed and total_corrected; note: observed and corrected are the same)
+  - Observed and corrected substitution mutation burdens (burden_observed and burden_corrected)
+  - Observed indel mutation burden (burden_indels_observed)
+  - Observed and corrected lower and upper confidence intervals of substitution mutation counts and observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed)
+  - Observed and corrected lower and upper confidence intervals of substitution mutation burdens and observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed)
 
 * purine_trinuc_mismatches: Data frame of the number of single-strand consensus purine mismatches. Columns: sample, tri (trinucleotide context), value.
 
@@ -113,3 +120,5 @@ Load NanoSeq data for region-specific analysis.
 
 ## Citation
 If you use NanoSeqTools, please cite Srinivasa A and Evrony GD. (2024). NanoSeqTools [Computer software]. https://github.com/evronylab/NanoSeqTools
+
+NanoSeqTools also incorporates code from [indelwald](https://github.com/MaximilianStammnitz/Indelwald). Citation: The evolution of two transmissible cancers in Tasmanian devils (Stammnitz et al. 2023, Science 380:6642)
