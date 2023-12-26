@@ -9,6 +9,9 @@ trint_subs_labels <- c("ACA>AAA","ACC>AAC","ACG>AAG","ACT>AAT","CCA>CAA","CCC>CA
 
 genome_freqs_labels <- str_sub(trint_subs_labels,1,3)
 
+#Order of indel context labels
+indel_labels <- c("1:Del:C:0","1:Del:C:1","1:Del:C:2","1:Del:C:3","1:Del:C:4","1:Del:C:5","1:Del:T:0","1:Del:T:1","1:Del:T:2","1:Del:T:3","1:Del:T:4","1:Del:T:5","1:Ins:C:0","1:Ins:C:1","1:Ins:C:2","1:Ins:C:3","1:Ins:C:4","1:Ins:C:5","1:Ins:T:0","1:Ins:T:1","1:Ins:T:2","1:Ins:T:3","1:Ins:T:4","1:Ins:T:5","2:Del:R:0","2:Del:R:1","2:Del:R:2","2:Del:R:3","2:Del:R:4","2:Del:R:5","3:Del:R:0","3:Del:R:1","3:Del:R:2","3:Del:R:3","3:Del:R:4","3:Del:R:5","4:Del:R:0","4:Del:R:1","4:Del:R:2","4:Del:R:3","4:Del:R:4","4:Del:R:5","5:Del:R:0","5:Del:R:1","5:Del:R:2","5:Del:R:3","5:Del:R:4","5:Del:R:5","2:Ins:R:0","2:Ins:R:1","2:Ins:R:2","2:Ins:R:3","2:Ins:R:4","2:Ins:R:5","3:Ins:R:0","3:Ins:R:1","3:Ins:R:2","3:Ins:R:3","3:Ins:R:4","3:Ins:R:5","4:Ins:R:0","4:Ins:R:1","4:Ins:R:2","4:Ins:R:3","4:Ins:R:4","4:Ins:R:5","5:Ins:R:0","5:Ins:R:1","5:Ins:R:2","5:Ins:R:3","5:Ins:R:4","5:Ins:R:5","2:Del:M:1","3:Del:M:1","3:Del:M:2","4:Del:M:1","4:Del:M:2","4:Del:M:3","5:Del:M:1","5:Del:M:2","5:Del:M:3","5:Del:M:4","5:Del:M:5")
+
 #All possible trinucleotides
 trinucleotides_64 <- apply(expand.grid(c("A","C","G","T"),c("A","C","G","T"),c("A","C","G","T")),1,paste,collapse="")
 trinucleotides_32_pyr <- apply(expand.grid(c("A","C","G","T"),c("C","T"),c("A","C","G","T")),1,paste,collapse="")
@@ -28,7 +31,7 @@ trinucleotide64to32 <- function(x){
 	return(apply(result[,-1],1,sum))
 }
 
-## Function to import indels for spectrum analysis, modified from INDELWALD package:
+#Function to import indels for spectrum analysis, modified from INDELWALD package:
 ## Max Stammnitz; maxrupsta@gmail.com; University of Cambridge  ##
 ## Citation: The evolution of two transmissible cancers in Tasmanian devils (Stammnitz et al. 2023, Science 380:6642)
 indel.spectrum <- function(x,reference){
@@ -1487,4 +1490,16 @@ indel.spectrum <- function(x,reference){
               'MH dels' = dels.greater.2bp.MH.summary)
   return(out)
   
+}
+
+#Function to convert indelwald spectrum (produced by indel.spectrum) to sigfit format
+indelwald.to.sigfit <- function(indelwald.spectrum){
+  result <- unlist(lapply(indelwald.spectrum,c)) %>%
+    as.data.frame %>%
+    na.omit %>%
+    set_names("count") %>%
+    bind_cols(label=indel_labels,.) %>%
+    pivot_wider(names_from=label,values_from=count) %>%
+    as.data.frame
+  return(result)
 }

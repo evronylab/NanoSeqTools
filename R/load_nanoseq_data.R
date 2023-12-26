@@ -14,7 +14,7 @@
 #' * vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations)
 #' * vcf_indel.fix: List (one object per sample) containing the fixed information (fix) from the indel vcf (only FILTER = PASS mutations)
 #' * vcf_indel.gt: List (one object per sample) containing the genotype information (gt) from the indel vcf (only FILTER = PASS mutations)
-#' * indel.spectra: List (one object per sample) containing the indel spectra (created with indelwald indel.spectrum function)
+#' * indel.spectra.sigfit: Data frame in sigfit format containing the indel spectra (created with indelwald indel.spectrum function), with one row per sample and one column per indel context
 #' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these. Columns: sample, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 #' * trinuc_bg_counts.sigfit: Data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 #' * trinuc_bg_ratio.sigfit: Data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
@@ -88,7 +88,10 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     vcf_indel.gt[[sample_name]] <- data.frame(vcf_indel@gt) %>% filter(data.frame(vcf_indel@fix)$FILTER == "PASS")
     
     # Calculate indel spectra
-    indel.spectra[[sample_name]] <- indel.spectrum(vcf_indel.fix[[sample_name]] %>% select(CHROM,POS,REF,ALT),BSgenome.StringSet)
+    indel.spectra[[sample_name]] <- vcf_indel.fix[[sample_name]] %>%
+      select(CHROM,POS,REF,ALT) %>%
+      indel.spectrum(BSgenome.StringSet) %>%
+      indelwald.to.sigfit
     
     # Load sample and genome trinucleotide background counts, and calculate ratio
     results.trint_counts_and_ratio2genome[[sample_name]] <- read.delim(paste0(dir,"/results.trint_counts_and_ratio2genome.tsv"),header=FALSE,skip=1) %>%
@@ -170,9 +173,13 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   results.estimated_error_rates <- bind_rows(results.estimated_error_rates,.id="sample")
   
   #Create sigfit format data frames, with samples in rows and trinucleotide contexts in columns, for:
-  # a) sample trinucleotide background counts
-  # b) ratios of the sample trinucleotide background counts to the genome trinucleotide background counts
-  # c) observed unique mutation counts. Note: using unique mutation counts, since that is a more faithful representation of the mutational process.
+  # a) indel counts spectra
+  # b) sample trinucleotide background counts
+  # c) ratios of the sample trinucleotide background counts to the genome trinucleotide background counts
+  # d) observed unique mutation counts. Note: using unique mutation counts, since that is a more faithful representation of the mutational process.
+  indel.spectra.sigfit <- bind_rows(indel.spectra,.id="sample") %>%
+    column_to_rownames("sample")
+  
   results.sample_tri_bg.sigfit <- results.trint_counts_and_ratio2genome %>%
   	dplyr::select(sample,tri,sample_tri_bg) %>%
   	pivot_wider(names_from=tri,values_from=sample_tri_bg) %>%
@@ -206,7 +213,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     vcf_snp.fix = vcf_snp.fix,
     vcf_indel.fix = vcf_indel.fix,
     vcf_indel.gt = vcf_indel.gt,
-  	indel.spectra = indel.spectra,
+  	indel.spectra.sigfit = indel.spectra.sigfit,
     trinuc_bg_counts_ratio = results.trint_counts_and_ratio2genome,
     trinuc_bg_counts.sigfit = results.sample_tri_bg.sigfit,
     trinuc_bg_ratio.sigfit = results.ratio2genome.sigfit,
