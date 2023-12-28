@@ -73,14 +73,14 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 		 #Extract bed coverage information for each region set
 		 # Note, suppressing warnings for situations when there is a chromosome in the region.list that is not in the coverage data and
 		 # a chromosome in the coverage data that is not in the region.list.
-		trinuc_bg_counts_ratio[[sample_name]] <- map(regions.list,function(x) suppressWarnings(subsetByOverlaps(bedcov.all,x,type="within")))
+		trinuc_bg_counts_ratio[[sample_name]] <- map(regions.list,function(x) suppressWarnings(subsetByOverlaps(bedcov.all,x)))
 		
 		#Calculate trinucleotide counts for each region set
 		trinuc_bg_counts_ratio[[sample_name]] <- map(trinuc_bg_counts_ratio[[sample_name]],function(x){
 			rep(x$tri,x$coverage) %>%
 				as.data.frame %>%
 				set_names("tri") %>%
-				count(tri) %>%
+				dplyr::count(tri) %>%
 				left_join(data.frame(tri=trinucleotides_64),.,by="tri") %>%
 				replace(is.na(.),0) %>%
 				deframe %>%
@@ -117,12 +117,12 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 		#  chromosome that is not in the other.
 		vcf_snp.fix.gr[[sample_name]] <- map(regions.list,function(x){
 			left_join(
-				suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr[[sample_name]],x,type="within",ignore.strand=FALSE)) %>%
+				suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr[[sample_name]],x,ignore.strand=FALSE)) %>%
 					as_tibble %>%
 					add_count(tri,name="trint_subst_observed") %>%
 					dplyr::select(tri,trint_subst_observed) %>%
 					distinct,
-				suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr[[sample_name]],x,type="within",ignore.strand=FALSE)) %>%
+				suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr[[sample_name]],x,ignore.strand=FALSE)) %>%
 					as_tibble %>%
 					distinct %>%
 					add_count(tri,name="trint_subst_unique_observed") %>%
