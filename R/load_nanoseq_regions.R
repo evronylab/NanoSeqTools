@@ -5,7 +5,7 @@
 #' This function loads NanoSeq data required for region-specific analysis.
 #'
 #' @param nanoseq_data Dataset resulting from load_nanoseq_data function
-#' @param regions.list GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). The strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
+#' @param regions.list GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. The strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
 #' @param tabix_bin Full path of tabix binary
 #' @return Returns NanoSeq results for each 'region set'. Samples without coverage of any of the regions are skipped and absent from the output.
 #' * sample_names: A vector of all sample IDs that were loaded
@@ -35,6 +35,9 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 	
 	dirs <- nanoseq_data$dirs
 	sample_names <- nanoseq_data$sample_names
+	
+	#Filter out exclude_regions from region sets
+	regions.list <- map(regions.list,function(x) subtract(x,nanoseq_data$exclude_regions) %>% unlist) %>% GRangesList
 	
 	message("Loading sample data...")
 	pb <- txtProgressBar(min=0,max=100,style=3)

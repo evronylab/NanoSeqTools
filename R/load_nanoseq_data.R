@@ -39,13 +39,18 @@
 
 load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomecontigs, exclude_regions=NULL, tabix_bin) {
   
-  #Load packages required only by this function
+  # Load packages required only by this function
   suppressPackageStartupMessages(library(BSgenomepackagename,character.only=TRUE))
   suppressPackageStartupMessages(library(vcfR))
   
-  #Check inputs
+  # Check inputs
   if(length(dirs) != length(sample_names)){
     stop("Length of dirs does not equal length of sample_names!")
+  }
+  
+   # Remove strand information if present in exclude_regions
+  if(!is.null(exclude_regions)){
+  	strand(exclude_regions) <- "*"
   }
   
   # Initialize lists for results
@@ -92,9 +97,6 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     
     # If exclude_regions is defined, obtain trinucleotide background for exclude_regions to subtract later from background counts, and then filter substitutions and indels within exclude_regions
     if(!is.null(exclude_regions)){
-    	
-    	#Remove strand information if present
-    	strand(exclude_regions) <- "*"
     	
     	#Load coverage information for exclude_regions
     	tmp.exclude_regions <- tempfile()
