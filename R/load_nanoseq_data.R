@@ -147,9 +147,9 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     		makeGRangesFromDataFrame(seqnames.field="CHROM",start.field="START",end.field="END")
     	
     	#Filter snps and indels within exclude_regions
-    	vcf_snp.fix[[sample_name]] <- vcf_snp.fix[[sample_name]] %>% filter(countOverlaps(vcf_snp.fix.gr,exclude_regions) == 0)
-    	vcf_indel.fix[[sample_name]] <- vcf_indel.fix[[sample_name]] %>% filter(countOverlaps(vcf_indel.fix.gr,exclude_regions,type="within") == 0)
-    	vcf_indel.gt[[sample_name]] <- vcf_indel.gt[[sample_name]] %>% filter(countOverlaps(vcf_indel.fix.gr,exclude_regions,type="within") == 0)
+    	vcf_snp.fix[[sample_name]] <- vcf_snp.fix[[sample_name]] %>% filter(suppressWarnings(countOverlaps(vcf_snp.fix.gr,exclude_regions)) == 0)
+    	vcf_indel.fix[[sample_name]] <- vcf_indel.fix[[sample_name]] %>% filter(suppressWarnings(countOverlaps(vcf_indel.fix.gr,exclude_regions,type="within")) == 0)
+    	vcf_indel.gt[[sample_name]] <- vcf_indel.gt[[sample_name]] %>% filter(suppressWarnings(countOverlaps(vcf_indel.fix.gr,exclude_regions,type="within")) == 0)
     }
     
     # Calculate number of unique indel counts for each indel context
