@@ -47,6 +47,8 @@ Load NanoSeq data for genome-wide analysis.
 
 * exclude_regions A GRanges (strand is ignored) object with regions to filter from substitution and indel mutations, in addition to the NOISE mask used in the NanoSeq pipeline. This also subtracts those regions from the number of interrogated bases using the sample's bed coverage information. Note: deletions that only partially span an excluded region are not filtered, and insertions are excluded based on the POS single base coordinate in the VCF. Default is no regions (i.e. NULL).
 
+* tabix_bin: Full path of tabix binary
+
 #### Outputs
 A list containing the following data objects:
 
