@@ -20,7 +20,7 @@ load_nanoseq_data(
 
 \item{BSgenomepackagename}{A string of a BSgenome package corresponding to the reference genome used in the Nanoseq analysis (e.g., "BSgenome.Hsapiens.UCSC.hg38" or "BSgenome.Mmusculus.UCSC.mm10"). This is used to calculate the genome trinucleotide background and corrected substitution counts and burdens.}
 
-\item{BSgenomecontigs}{A vector of numeric indices of the contigs of the BSgenome package from which to calculate the genome trinucleotide background (e.g., 1:24 for BSgenome.Hsapiens.UCSC.hg38, or 1:21 for BSgenome.Mmusculus.UCSC.mm10).}
+\item{BSgenomecontigs}{A vector of numeric indices of the contigs of the BSgenome package from which to calculate the genome trinucleotide background (e.g., 1:24 for BSgenome.Hsapiens.UCSC.hg38, or 1:21 for BSgenome.Mmusculus.UCSC.mm10). This should match the contigs analyzed by the main NanoSeq pipeline.}
 
 \item{exclude_regions}{A GRanges (strand is ignored) object with regions to filter from substitution and indel mutations, in addition to the NOISE mask used in the NanoSeq pipeline. This also subtracts those regions from the number of interrogated bases using the sample's bed coverage information. Note: deletions that only partially span an excluded region are not filtered, and insertions are excluded based on the POS single base coordinate in the VCF. Default is no regions (i.e. NULL).}
 

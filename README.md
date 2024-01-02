@@ -43,7 +43,7 @@ Load NanoSeq data for genome-wide analysis.
 
 * BSgenomepackagename: A string of a BSgenome package corresponding to the reference genome used in the Nanoseq analysis (e.g., "BSgenome.Hsapiens.UCSC.hg38" or "BSgenome.Mmusculus.UCSC.mm10"). This is used to calculate the genome trinucleotide background and corrected substitution counts and burdens.
 
-* BSgenomecontigs: A vector of numeric indices of the contigs of the BSgenome package from which to calculate the genome trinucleotide background (e.g., 1:24 for BSgenome.Hsapiens.UCSC.hg38, or 1:21 for BSgenome.Mmusculus.UCSC.mm10).
+* BSgenomecontigs: A vector of numeric indices of the contigs of the BSgenome package from which to calculate the genome trinucleotide background (e.g., 1:24 for BSgenome.Hsapiens.UCSC.hg38, or 1:21 for BSgenome.Mmusculus.UCSC.mm10). This should match the contigs analyzed by the main NanoSeq pipeline.
 
 * exclude_regions A GRanges (strand is ignored) object with regions to filter from substitution and indel mutations, in addition to the NOISE mask used in the NanoSeq pipeline. This also subtracts those regions from the number of interrogated bases using the sample's bed coverage information. Note: deletions that only partially span an excluded region are not filtered, and insertions are excluded based on the POS single base coordinate in the VCF. Default is no regions (i.e. NULL).
 
@@ -99,9 +99,7 @@ Load NanoSeq data for region-specific analysis.
 ##### Arguments
 * nanoseq_data: Dataset resulting from load_nanoseq_data function
 
-* regions.list: GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). The strand of each region in the region set specifies for each region, which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. When there are overlapping regions with opposite strands, the mutations are counted only once regardless of the strand. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
-
-* excluded_samples: Names of samples excluded from the results because they do not have NanoSeq read coverage in any regions
+* regions.list: GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. The strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Regions that are not in the contigs analyzed by the NanoSeq pipeline can be included in a 'region set', but they do not contribute any aspect of the data analysis. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
 
 * tabix_bin: Full path of tabix binary
 
@@ -111,6 +109,8 @@ Load NanoSeq data for region-specific analysis.
 * dir: A vector of the directories containing the NanoSeq results that were loaded
 
 * regions.list: Copy of input regions.list
+
+* excluded_samples: Names of samples excluded from the results because they do not have NanoSeq read coverage in any regions
 
 * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these for each sample/region combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 
