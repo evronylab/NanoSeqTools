@@ -4,12 +4,19 @@
 \alias{load_nanoseq_regions}
 \title{Load NanoSeq data for region-specific analysis}
 \usage{
-load_nanoseq_regions(nanoseq_data, regions.list, tabix_bin)
+load_nanoseq_regions(
+  nanoseq_data,
+  regions.list,
+  ignore.strand = FALSE,
+  tabix_bin
+)
 }
 \arguments{
 \item{nanoseq_data}{Dataset resulting from load_nanoseq_data function}
 
-\item{regions.list}{GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. The strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Regions that are not in the contigs analyzed by the NanoSeq pipeline can be included in a 'region set', but they do not contribute any aspect of the data analysis. Best practice is to name the elements of regions.list, since these names are carried forward to the output.}
+\item{regions.list}{GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. If ignore.strand = FALSE, the strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. If ignore.strand = TRUE, all mutations in the region are included regardless of strand. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Regions that are not in the contigs analyzed by the NanoSeq pipeline can be included in a 'region set', but they do not contribute any aspect of the data analysis. Best practice is to name the elements of regions.list, since these names are carried forward to the output.}
+
+\item{ignore.strand}{TRUE or FALSE (default). Whether to ignore strand information in regions.list.}
 
 \item{tabix_bin}{Full path of tabix binary}
 }

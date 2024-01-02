@@ -5,7 +5,8 @@
 #' This function loads NanoSeq data required for region-specific analysis.
 #'
 #' @param nanoseq_data Dataset resulting from load_nanoseq_data function
-#' @param regions.list GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. The strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Regions that are not in the contigs analyzed by the NanoSeq pipeline can be included in a 'region set', but they do not contribute any aspect of the data analysis. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
+#' @param regions.list GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. If ignore.strand = FALSE, the strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. If ignore.strand = TRUE, all mutations in the region are included regardless of strand. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Regions that are not in the contigs analyzed by the NanoSeq pipeline can be included in a 'region set', but they do not contribute any aspect of the data analysis. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
+#' @param ignore.strand TRUE or FALSE (default). Whether to ignore strand information in regions.list.
 #' @param tabix_bin Full path of tabix binary
 #' @return Returns NanoSeq results for each 'region set'. Samples without coverage of any of the regions are skipped and absent from the output.
 #' * sample_names: A vector of all sample IDs that were loaded
@@ -21,7 +22,7 @@
 #' * mutation_burden: Data frame of the total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, for each sample/region combination. All these statistics include all mutations, not just unique mutations.
 #' @export
 
-load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
+load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE, tabix_bin){
 
 	#Load packages required only by this function
 	suppressPackageStartupMessages(library(rtracklayer))
@@ -36,8 +37,12 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,tabix_bin){
 	dirs <- nanoseq_data$dirs
 	sample_names <- nanoseq_data$sample_names
 	
-	#Filter out exclude_regions from region sets
+	#Filter out exclude_regions from region sets, and remove strand information if ignore.strand = TRUE
 	regions.list <- map(regions.list,function(x) subtract(x,nanoseq_data$exclude_regions) %>% unlist) %>% GRangesList
+	
+	if(ignore.strand){
+		regions.list <- map(regions.list,function(x) {strand(x) <- "*"; return(x)}) %>% GRangesList
+	}
 	
 	message("Loading sample data...")
 	pb <- txtProgressBar(min=0,max=100,style=3)
