@@ -62,7 +62,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		
 		 #Load bed coverage information for all regions across all region sets.
 		tmp.regions.all <- tempfile()
-		regions.list %>% unlist %>% reduce %>% export(con=tmp.regions.all,format="bed")
+		regions.list %>% unlist %>% reduce %>% sort %>% export(con=tmp.regions.all,format="bed")
 		
 		tmp.bedcov.all <- tempfile()
 		system(paste(tabix_bin,paste0(dir,"/results.cov.bed.gz"),"-R",tmp.regions.all,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
