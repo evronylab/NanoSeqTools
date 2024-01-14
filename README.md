@@ -56,6 +56,10 @@ A list containing the following data objects:
 
 * dirs: A vector of the directories containing the NanoSeq results that were loaded
 
+* BSgenomepackagename: BSgenome package name used for the analysis
+
+* BSgenomecontigs: BSgenome contig indexes used for the analysis
+
 * exclude_regions: GRanges object of the input parameter of additoinal regions to filter
 
 * vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations)

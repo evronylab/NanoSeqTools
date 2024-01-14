@@ -35,6 +35,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	#Load packages required only by this function
 	suppressPackageStartupMessages(library(rtracklayer))
 	suppressPackageStartupMessages(library(GenomicRanges))
+	suppressPackageStartupMessages(library(nanoseq_data$BSgenomepackagename,character.only=TRUE))
 	
 	#Initialize lists for results
 	excluded_samples <- c()
@@ -54,7 +55,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	}
 	
 	#Convert BSgenome to StringSet object for indel spectrum loading
-	BSgenome.StringSet <- as(sapply(seqnames(eval(parse(text=BSgenomepackagename))),function(x){eval(parse(text=BSgenomepackagename))[[x]]}),"DNAStringSet")
+	BSgenome.StringSet <- as(sapply(seqnames(eval(parse(text=nanoseq_data$BSgenomepackagename))),function(x){eval(parse(text=nanoseq_data$BSgenomepackagename))[[x]]}),"DNAStringSet")
 	
 	message("Loading sample data...")
 	pb <- txtProgressBar(min=0,max=100,style=3)
