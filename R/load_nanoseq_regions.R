@@ -141,14 +141,14 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 				data.frame(tri=trint_subs_labels),
 				suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr,x,ignore.strand=FALSE)) %>%
 					as_tibble %>%
-					count(tri,name="trint_subst_observed"),
+					dplyr::count(tri,name="trint_subst_observed"),
 				by="tri"
 			) %>%
 			left_join(
 	    	suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr,x,ignore.strand=FALSE)) %>%
 	    		as_tibble %>%
 	    		distinct %>%
-	    		count(tri,name="trint_subst_unique_observed"),
+	    		dplyr::count(tri,name="trint_subst_unique_observed"),
 	    	by="tri"
 	    ) %>%
 	    replace(is.na(.),0)
@@ -170,8 +170,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		# Calculate number of unique indel counts for each indel context for each 'region set'
 		indel_counts[[sample_name]] <- map(vcf_indel.fix,function(x){
 			x %>%
-				dplyr::select(CHROM,POS,REF,ALT) %>%
-				distinct %>%
+				distinct(CHROM,POS,REF,ALT) %>%
 				indel.spectrum(BSgenome.StringSet) %>%
 				indelwald.to.sigfit
 		})
@@ -185,7 +184,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		  		muts_observed = sum(x$trint_subst_observed),
 		  		muts_corrected = sum(x$trint_subst_corrected,na.rm=TRUE),
 		  		indels_observed = y %>% nrow,
-		  		indels_unique_observed = y %>% dplyr::select(CHROM,POS,REF,ALT) %>% distinct %>% nrow,
+		  		indels_unique_observed = y %>% distinct(CHROM,POS,REF,ALT) %>% nrow,
 		  		total_observed = sum(z$sample_tri_bg),
 		  		total_corrected = sum(z$sample_tri_bg)
 	      ) %>%
@@ -255,11 +254,11 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	trinuc_bg_counts.sigfit <- trinuc_bg_counts_ratio %>%
 	  split(.$region) %>%
 	  map(function(x){
-	    x <- x %>% dplyr::select(sample,tri,sample_tri_bg) %>%
+	    x <- x %>%
+	    	dplyr::select(sample,tri,sample_tri_bg) %>%
 	      pivot_wider(names_from=tri,values_from=sample_tri_bg) %>%
 	      column_to_rownames("sample")
-	    x <- x[,genome_freqs_labels]
-	    colnames(x) <- genome_freqs_labels
+	    x <- x[,genome_freqs_labels] %>% set_names(genome_freqs_labels)
 	    return(x)
 	  })
 	
@@ -269,8 +268,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	    x <- x %>% dplyr::select(sample,tri,ratio2genome) %>%
 	      pivot_wider(names_from=tri,values_from=ratio2genome) %>%
 	      column_to_rownames("sample")
-	    x <- x[,genome_freqs_labels]
-	    colnames(x) <- genome_freqs_labels
+	    x <- x[,genome_freqs_labels] %>% set_names(genome_freqs_labels)
 	    return(x)
 	  })
 	

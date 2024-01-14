@@ -111,13 +111,11 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     	if(length(bedcov.exclude_regions)==0){
     		bedcov.exclude_regions <- data.frame(tri=trinucleotides_64,exclude_tri_bg=0) %>%
     			deframe %>%
-    			trinucleotide64to32 %>%
     			as_tibble(rownames="tri") %>%
     			dplyr::rename(exclude_tri_bg=value)
     	}else{
-    		colnames(mcols(bedcov.exclude_regions)) <- c("coverage","tri","ref")
-    		
     		#Calculate trinucleotide counts for exclude_regions
+    		colnames(mcols(bedcov.exclude_regions)) <- c("coverage","tri","ref")
     		bedcov.exclude_regions <- rep(bedcov.exclude_regions$tri,bedcov.exclude_regions$coverage) %>%
     			as.data.frame %>%
     			set_names("tri") %>%
@@ -142,8 +140,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     
     # Calculate number of unique indel counts for each indel context
     indel_counts[[sample_name]] <- vcf_indel.fix[[sample_name]] %>%
-    	dplyr::select(CHROM,POS,REF,ALT) %>%
-    	distinct %>%
+    	distinct(CHROM,POS,REF,ALT) %>%
     	indel.spectrum(BSgenome.StringSet) %>%
     	indelwald.to.sigfit
     
@@ -165,10 +162,9 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     results.trint_counts_and_ratio2genome[[sample_name]] <- results.trint_counts_and_ratio2genome[[sample_name]] %>%
     	mutate(ratio2genome=(sample_tri_bg/sum(sample_tri_bg))/(genome_tri_bg/sum(genome_tri_bg)) )
     
-    ratio2genome <- results.trint_counts_and_ratio2genome[[sample_name]] %>% dplyr::select(tri,ratio2genome)
-    
     #Calculate number of observed and corrected substitutions in each trinucleotide context, both for all mutations and after collapsing to unique mutations
-    vcf_snp.fix.all <- vcf_snp.fix[[sample_name]] %>% dplyr::select (CHROM,POS,REF,ALT,INFO) %>%
+    vcf_snp.fix.all <- vcf_snp.fix[[sample_name]] %>%
+    	dplyr::select(CHROM,POS,REF,ALT,INFO) %>%
       mutate(INFO = str_replace(INFO,".*TRI=",""),
       			 INFO = str_replace(INFO,";.*",""),
       			 tri = str_c(str_sub(INFO,1,4),str_sub(INFO,1,1),str_sub(INFO,5,5),str_sub(INFO,3,3))
@@ -184,17 +180,16 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     	left_join(vcf_snp.fix.unique,by="tri") %>%
     	replace(is.na(.), 0) %>%
       mutate(tri_short=str_sub(tri,1,3)) %>%
-      left_join(ratio2genome,by=c("tri_short" = "tri")) %>%
+      left_join(results.trint_counts_and_ratio2genome[[sample_name]] %>% dplyr::select(tri,ratio2genome),by=c("tri_short" = "tri")) %>%
       mutate(trint_subst_corrected = trint_subst_observed / ratio2genome,
       			 trint_subst_unique_corrected = trint_subst_unique_observed / ratio2genome) %>%
-      dplyr::select(-tri_short) %>%
-      arrange(match(tri,trint_subs_labels))
+      dplyr::select(-tri_short)
     
     results.mut_burden[[sample_name]] <- data.frame(
       muts_observed = sum(results.trint_subs_obs_corrected[[sample_name]]$trint_subst_observed),
       muts_corrected = sum(results.trint_subs_obs_corrected[[sample_name]]$trint_subst_corrected),
       indels_observed = vcf_indel.fix[[sample_name]] %>% nrow,
-      indels_unique_observed = vcf_indel.fix[[sample_name]] %>% dplyr::select(CHROM,POS,REF,ALT) %>% distinct %>% nrow,
+      indels_unique_observed = vcf_indel.fix[[sample_name]] %>% distinct(CHROM,POS,REF,ALT) %>% nrow,
       total_observed = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg),
       total_corrected = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg)
     ) %>%
@@ -231,7 +226,10 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
       dplyr::rename(value=V2) %>%
       dplyr::select(tri,value)
     
-    results.estimated_error_rates[[sample_name]] <- read.delim(paste0(dir,"/results.estimated_error_rates.tsv"), header=FALSE, row.names=1) %>% t %>% as.data.frame %>% remove_rownames
+    results.estimated_error_rates[[sample_name]] <- read.delim(paste0(dir,"/results.estimated_error_rates.tsv"), header=FALSE, row.names=1) %>%
+    	t %>%
+    	as.data.frame %>%
+    	remove_rownames
   }
   close(pb)
   
@@ -256,15 +254,13 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   	dplyr::select(sample,tri,sample_tri_bg) %>%
   	pivot_wider(names_from=tri,values_from=sample_tri_bg) %>%
   	column_to_rownames("sample")
-  results.sample_tri_bg.sigfit <- results.sample_tri_bg.sigfit[,genome_freqs_labels]
-  colnames(results.sample_tri_bg.sigfit) <- genome_freqs_labels
+  results.sample_tri_bg.sigfit <- results.sample_tri_bg.sigfit[,genome_freqs_labels] %>% set_names(genome_freqs_labels)
   
   results.ratio2genome.sigfit <- results.trint_counts_and_ratio2genome %>%
     dplyr::select(sample,tri,ratio2genome) %>%
     pivot_wider(names_from=tri,values_from=ratio2genome) %>%
     column_to_rownames("sample")
-  results.ratio2genome.sigfit <- results.ratio2genome.sigfit[,genome_freqs_labels]
-  colnames(results.ratio2genome.sigfit) <- genome_freqs_labels
+  results.ratio2genome.sigfit <- results.ratio2genome.sigfit[,genome_freqs_labels] %>% set_names(genome_freqs_labels)
 
   results.trint_subst_obs.sigfit <- results.trint_subs_obs_corrected %>%
     dplyr::select(sample,tri,trint_subst_unique_observed) %>%
@@ -273,10 +269,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   
   # Format genome_trinuc_counts to named vector in order of genome_freqs_labels
   genome_trinuc_counts.sigfit <- genome_trinuc_counts %>% column_to_rownames("tri")
-  genome_trinuc_counts.sigfit <- genome_trinuc_counts.sigfit[genome_freqs_labels,,drop=FALSE] %>% t %>% asplit(1) %>% unlist
-  names(genome_trinuc_counts.sigfit) <- names(genome_trinuc_counts.sigfit) %>%
-  	str_replace("genome_tri_bg.","") %>%
-  	str_replace("\\..*","")
+  genome_trinuc_counts.sigfit <- genome_trinuc_counts.sigfit[genome_freqs_labels,] %>% set_names(genome_freqs_labels)
   
   # Create a list or data structure to store the results
   results <- list(
