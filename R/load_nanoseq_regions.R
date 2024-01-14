@@ -13,13 +13,21 @@
 #' * dir: A vector of the directories containing the NanoSeq results that were loaded
 #' * regions.list: Copy of input regions.list
 #' * excluded_samples: Names of samples excluded from the results because they do not have NanoSeq read coverage in any regions
+#' * indel_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context. Indel counts do not take into account strand information regardless of region strand and the ignore.strand setting.
 #' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. for each sample/region set, the number of each trinucleotide context in the genomic region set), and the normalized ratio of these for each sample/region set combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 #' * trinuc_bg_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 #' * trinuc_bg_ratio.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
 #' * genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
 #' * observed_corrected_trinuc_counts: Data frame of observed and corrected mutation counts (for all mutations and for unique mutations) for each sample/region set combination. Columns: sample, region, tri (trinucleotide context), trint_subst_observed, trint_subst_unique_observed, ratio2genome, trint_subst_corrected, trint_subst_unique_corrected.
 #' * observed_trinuc_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
-#' * mutation_burden: Data frame of the total number of observed and corrected mutations, total number of observed and corrected interrogated bases (note: observed and corrected are the same), observed and corrected mutation burdens, observed and corrected lower and upper confidence intervals of mutation counts, and observed and corrected lower and upper confidence intervals of mutation burdens, for each sample/region combination. All these statistics include all mutations, not just unique mutations.
+#' * mutation_burden, with one row per sample/region combination. All substitution mutation statistics include all mutations, not just unique mutations. Indel statistics are calculated both for all and for unique mutations and do not take into account strand regardless of region strand and the ignore.strand setting.
+#'  - The number of observed and corrected substitution mutations (muts_observed and muts_corrected)
+#'  - Number of all and unique observed indels (indels_observed, indels_unique_observed)
+#'  - Total number of observed and corrected interrogated bases (total_observed and total_corrected; note: observed and corrected are the same)
+#'  - Observed and corrected substitution mutation burdens (burden_observed and burden_corrected)
+#'  - All and unique observed indel mutation burden (burden_indels_observed and burden_indels_unique_observed)
+#'  - Observed and corrected lower and upper confidence intervals of substitution mutation counts and all and unique observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, indels_unique_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed, indels_unique_uci_observed)
+#'  - Observed and corrected lower and upper confidence intervals of substitution mutation burdens and all and unique observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_indels_unique_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed, burden_indels_unique_uci_observed)
 #' @export
 
 load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE, tabix_bin){
@@ -31,7 +39,8 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	#Initialize lists for results
 	excluded_samples <- c()
 	trinuc_bg_counts_ratio <- list()
-	vcf_snp.fix.gr <- list()
+	vcf_snp.fix <- list()
+	indel_counts <- list()
 	mutation_burden <- list()
 	
 	dirs <- nanoseq_data$dirs
@@ -43,6 +52,9 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	if(ignore.strand){
 		regions.list <- map(regions.list,function(x) {strand(x) <- "*"; return(x)}) %>% GRangesList
 	}
+	
+	#Convert BSgenome to StringSet object for indel spectrum loading
+	BSgenome.StringSet <- as(sapply(seqnames(eval(parse(text=BSgenomepackagename))),function(x){eval(parse(text=BSgenomepackagename))[[x]]}),"DNAStringSet")
 	
 	message("Loading sample data...")
 	pb <- txtProgressBar(min=0,max=100,style=3)
@@ -78,7 +90,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		}
 		colnames(mcols(bedcov.all)) <- c("coverage","tri","ref")
 		
-		 #Extract bed coverage information for each region set
+		#Extract bed coverage information for each region set
 		 # Note, suppressing warnings for situations when there is a chromosome in the region.list that is not in the coverage data and
 		 # a chromosome in the coverage data that is not in the region.list.
 		trinuc_bg_counts_ratio[[sample_name]] <- map(regions.list,function(x) suppressWarnings(subsetByOverlaps(bedcov.all,x)))
@@ -110,39 +122,39 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		
 		#Extract mutation information for each region set
 		 #Load mutations in each region set, and annotate strand of reference genome that is a central pyrimidine
-		vcf_snp.fix.gr[[sample_name]] <- nanoseq_data$vcf_snp.fix[[sample_name]] %>%
+		vcf_snp.fix.gr <- nanoseq_data$vcf_snp.fix[[sample_name]] %>%
 		    select(-c(ID,QUAL,FILTER)) %>%
 		    mutate(tri=str_replace(INFO,".*TRI=(...>.).*","\\1"),
 		           tri=str_c(str_sub(tri,1,4),str_sub(tri,1,1),str_sub(tri,5,5),str_sub(tri,3,3)),
 		           strand=if_else(REF %in% c("C","T"),"+","-")) %>%
 		    select(-c(REF,ALT,INFO)) %>%
 		    makeGRangesFromDataFrame(seqnames.field="CHROM",start.field="POS",end.field="POS",keep.extra.columns=TRUE)
+		vcf_indel.fix.gr <- nanoseq_data$vcf_indel.fix[[sample_name]] %>% vcf_indel_toGRanges
 		
-		#Extract mutations in each region set, taking into account strand information.
-		# Note, trint_subst_corrected and trint_subst_unique_corrected can have values of NaN when both the numerator and denominator
-		#  values used to calculate them are both 0, and they can have values of Inf when only the denominator is 0.
-		# Note, suppressing warnings for situations when the mutations granges and the region set both have at least one
-		#  chromosome that is not in the other.
-		vcf_snp.fix.gr[[sample_name]] <- map(regions.list,function(x){
+		 #Extract mutations in each region set, taking into account strand information for substitutions but not for indels.
+		 # Note, trint_subst_corrected and trint_subst_unique_corrected can have values of NaN when both the numerator and denominator
+		 #  values used to calculate them are both 0, and they can have values of Inf when only the denominator is 0.
+		 # Note, suppressing warnings for situations when the mutations granges and the region set both have at least one
+		 #  chromosome that is not in the other.
+		vcf_snp.fix[[sample_name]] <- map(regions.list,function(x){
 			left_join(
-				suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr[[sample_name]],x,ignore.strand=FALSE)) %>%
+				data.frame(tri=trint_subs_labels),
+				suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr,x,ignore.strand=FALSE)) %>%
 					as_tibble %>%
-					add_count(tri,name="trint_subst_observed") %>%
-					dplyr::select(tri,trint_subst_observed) %>%
-					distinct,
-				suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr[[sample_name]],x,ignore.strand=FALSE)) %>%
-					as_tibble %>%
-					distinct %>%
-					add_count(tri,name="trint_subst_unique_observed") %>%
-					dplyr::select(tri,trint_subst_unique_observed) %>%
-					distinct,
+					count(tri,name="trint_subst_observed"),
 				by="tri"
 			) %>%
-		    left_join(data.frame(tri=trint_subs_labels),.,by="tri") %>%
-		    replace(is.na(.),0)
+			left_join(
+	    	suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr,x,ignore.strand=FALSE)) %>%
+	    		as_tibble %>%
+	    		distinct %>%
+	    		count(tri,name="trint_subst_unique_observed"),
+	    	by="tri"
+	    ) %>%
+	    replace(is.na(.),0)
 		})
 		
-		vcf_snp.fix.gr[[sample_name]] <- map2(vcf_snp.fix.gr[[sample_name]],trinuc_bg_counts_ratio[[sample_name]],function(x,y){
+		vcf_snp.fix[[sample_name]] <- map2(vcf_snp.fix[[sample_name]],trinuc_bg_counts_ratio[[sample_name]],function(x,y){
 		  left_join(x %>% mutate(tri_short=str_sub(tri,1,3)),
 		            y %>% dplyr::rename(tri_short=tri),
 		  					by="tri_short") %>%
@@ -151,39 +163,71 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		           )
 		})
 		
+		vcf_indel.fix <- map(regions.list,function(x){
+			nanoseq_data$vcf_indel.fix[[sample_name]] %>% filter(suppressWarnings(countOverlaps(vcf_indel.fix.gr,x,type="within",ignore.strand=TRUE)) > 0)
+		})
+		
+		# Calculate number of unique indel counts for each indel context for each 'region set'
+		indel_counts[[sample_name]] <- map(vcf_indel.fix,function(x){
+			x %>%
+				dplyr::select(CHROM,POS,REF,ALT) %>%
+				distinct %>%
+				indel.spectrum(BSgenome.StringSet) %>%
+				indelwald.to.sigfit
+		})
+		
 		#Calculate mutation burdens for each 'region set'.
 		# Note, corrected burdens may be NaN when there are 0 observed/corrected mutations in a region.
-		mutation_burden[[sample_name]] <- map(vcf_snp.fix.gr[[sample_name]],function(x){
-		  data.frame(muts_observed = sum(x$trint_subst_observed,na.rm=TRUE),
-		             muts_corrected = sum(x$trint_subst_corrected,na.rm=TRUE),
-		             total_observed = sum(x$sample_tri_bg,na.rm=TRUE),
-		             total_corrected = sum(x$sample_tri_bg,na.rm=TRUE)
-      ) %>%
-			mutate(
-			  burden_observed = muts_observed / total_observed,
-			  burden_corrected = muts_corrected / total_corrected,
-			  muts_lci_observed = poisson.test(muts_observed)$conf.int[1],
-			  muts_lci_corrected = muts_lci_observed / muts_observed * muts_corrected,
-			  muts_uci_observed = poisson.test(muts_observed)$conf.int[2],
-			  muts_uci_corrected = muts_uci_observed / muts_observed * muts_corrected,
-			  burden_lci_observed = muts_lci_observed / total_observed,
-			  burden_lci_corrected = muts_lci_corrected / total_corrected,
-			  burden_uci_observed = muts_uci_observed / total_observed,
-			  burden_uci_corrected = muts_uci_corrected / total_corrected
-      )
-		})
+		mutation_burden[[sample_name]] <- pmap(
+			list(x=vcf_snp.fix[[sample_name]],y=vcf_indel.fix,z=trinuc_bg_counts_ratio[[sample_name]]),
+			function(x,y,z){
+		  	data.frame(
+		  		muts_observed = sum(x$trint_subst_observed),
+		  		muts_corrected = sum(x$trint_subst_corrected,na.rm=TRUE),
+		  		indels_observed = y %>% nrow,
+		  		indels_unique_observed = y %>% dplyr::select(CHROM,POS,REF,ALT) %>% distinct %>% nrow,
+		  		total_observed = sum(z$sample_tri_bg),
+		  		total_corrected = sum(z$sample_tri_bg)
+	      ) %>%
+					mutate(
+		      	burden_observed = muts_observed / total_observed,
+		      	burden_corrected = muts_corrected / total_corrected,
+		      	burden_indels_observed = indels_observed / total_observed,
+		      	burden_indels_unique_observed = indels_unique_observed / total_observed,
+		      	muts_lci_observed = poisson.test(muts_observed)$conf.int[1],
+		      	muts_lci_corrected = muts_lci_observed / muts_observed * muts_corrected,
+		      	indels_lci_observed = poisson.test(indels_observed)$conf.int[1],
+		      	indels_unique_lci_observed = poisson.test(indels_unique_observed)$conf.int[1],
+		      	muts_uci_observed = poisson.test(muts_observed)$conf.int[2],
+		      	muts_uci_corrected = muts_uci_observed / muts_observed * muts_corrected,
+		      	indels_uci_observed = poisson.test(indels_observed)$conf.int[2],
+		      	indels_unique_uci_observed = poisson.test(indels_unique_observed)$conf.int[2],
+		      	burden_lci_observed = muts_lci_observed / total_observed,
+		      	burden_lci_corrected = muts_lci_corrected / total_corrected,
+		      	burden_indels_lci_observed = indels_lci_observed / total_observed,
+		      	burden_indels_unique_lci_observed = indels_unique_lci_observed / total_observed,
+		      	burden_uci_observed = muts_uci_observed / total_observed,
+		      	burden_uci_corrected = muts_uci_corrected / total_corrected,
+		      	burden_indels_uci_observed = indels_uci_observed / total_observed,
+		      	burden_indels_unique_uci_observed = indels_unique_uci_observed / total_observed
+	      	)
+			})
 		
 	}
 	close(pb)
 
-	
 	# Collapse lists to data frames
 	message("Combining sample data into data frames...")
+	
+	indel_counts <- indel_counts %>%
+		map(function(x) bind_rows(x,.id="region")) %>%
+		bind_rows(.id="sample")
+	
 	trinuc_bg_counts_ratio <- trinuc_bg_counts_ratio %>%
 	  map(function(x) bind_rows(x,.id="region")) %>%
 	  bind_rows(.id="sample")
 	
-	observed_corrected_trinuc_counts <- vcf_snp.fix.gr %>%
+	observed_corrected_trinuc_counts <- vcf_snp.fix %>%
 	  map(function(x) bind_rows(x,.id="region")) %>%
 	  bind_rows(.id="sample") %>%
 		dplyr::select(-c(tri_short,sample_tri_bg,genome_tri_bg)) %>%
@@ -195,9 +239,19 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		as_tibble
 	
 	#For each region set, create sigfit format data frames, with samples in rows and trinucleotide contexts in columns, for:
-	# a) sample trinucleotide background counts
-	# b) ratios of the sample trinucleotide background counts to the genome trinucleotide background counts
-	# c) observed unique mutation counts. Note: using unique mutation counts, since that is a more faithful representation of the mutational process.
+	# a) indel counts spectra
+	# b) sample trinucleotide background counts
+	# c) ratios of the sample trinucleotide background counts to the genome trinucleotide background counts
+	# d) observed unique mutation counts. Note: using unique mutation counts, since that is a more faithful representation of the mutational process.
+	indel_counts.sigfit <- indel_counts %>%
+		split(.$region) %>%
+		map(function(x){
+			x %>%
+				select(-region) %>%
+				remove_rownames %>%
+				column_to_rownames("sample")
+			})
+	
 	trinuc_bg_counts.sigfit <- trinuc_bg_counts_ratio %>%
 	  split(.$region) %>%
 	  map(function(x){
@@ -240,6 +294,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		dirs = dirs,
 		regions.list = regions.list,
 		excluded_samples = sample_names[excluded_samples],
+		indel_counts.sigfit = indel_counts.sigfit,
 		trinuc_bg_counts_ratio = trinuc_bg_counts_ratio,
 		trinuc_bg_counts.sigfit = trinuc_bg_counts.sigfit,
 		trinuc_bg_ratio.sigfit = trinuc_bg_ratio.sigfit,

@@ -17,7 +17,7 @@
 #' * vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations)
 #' * vcf_indel.fix: List (one object per sample) containing the fixed information (fix) from the indel vcf (only FILTER = PASS mutations)
 #' * vcf_indel.gt: List (one object per sample) containing the genotype information (gt) from the indel vcf (only FILTER = PASS mutations)
-#' * indel.spectra.sigfit: Data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context
+#' * indel_counts.sigfit: Data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context
 #' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these. Columns: sample, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 #' * trinuc_bg_counts.sigfit: Data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 #' * trinuc_bg_ratio.sigfit: Data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
@@ -57,7 +57,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   vcf_snp.fix <- list()
   vcf_indel.fix <- list()
   vcf_indel.gt <- list()
-  indel.spectra <- list()
+  indel_counts <- list()
   results.trint_counts_and_ratio2genome <- list()
   results.trint_subs_obs_corrected <- list()
   results.mut_burden <- list()
@@ -131,20 +131,8 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     	}
     	
     	#Make temporary GRanges versions of vcf_snp.fix and vcf_indel.fix for filtering exclude_regions.
-    	 # Note: in NanoSeq indel vcfs, always either REF or ALT has length = 1 and the other has length > 1.
     	vcf_snp.fix.gr <- vcf_snp.fix[[sample_name]] %>% makeGRangesFromDataFrame(seqnames.field="CHROM",start.field="POS",end.field="POS")
-    	vcf_indel.fix.gr <- vcf_indel.fix[[sample_name]] %>%
-    		mutate(
-    			START=case_when(
-    				nchar(REF) > nchar(ALT) ~ POS + 1,
-    				.default = POS
-    			),
-    			END=case_when(
-    				nchar(REF) > nchar(ALT) ~ POS + nchar(REF) - 1,
-    				.default = POS
-    			)
-    		) %>%
-    		makeGRangesFromDataFrame(seqnames.field="CHROM",start.field="START",end.field="END")
+    	vcf_indel.fix.gr <- vcf_indel.fix[[sample_name]] %>% vcf_indel_toGRanges
     	
     	#Filter snps and indels within exclude_regions
     	vcf_snp.fix[[sample_name]] <- vcf_snp.fix[[sample_name]] %>% filter(suppressWarnings(countOverlaps(vcf_snp.fix.gr,exclude_regions)) == 0)
@@ -153,7 +141,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     }
     
     # Calculate number of unique indel counts for each indel context
-    indel.spectra[[sample_name]] <- vcf_indel.fix[[sample_name]] %>%
+    indel_counts[[sample_name]] <- vcf_indel.fix[[sample_name]] %>%
     	dplyr::select(CHROM,POS,REF,ALT) %>%
     	distinct %>%
     	indel.spectrum(BSgenome.StringSet) %>%
@@ -209,28 +197,29 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
       indels_unique_observed = vcf_indel.fix[[sample_name]] %>% dplyr::select(CHROM,POS,REF,ALT) %>% distinct %>% nrow,
       total_observed = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg),
       total_corrected = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg)
-    ) %>% mutate(
-      burden_observed = muts_observed / total_observed,
-      burden_corrected = muts_corrected / total_corrected,
-      burden_indels_observed = indels_observed / total_observed,
-      burden_indels_unique_observed = indels_unique_observed / total_observed,
-      muts_lci_observed = poisson.test(muts_observed)$conf.int[1],
-      muts_lci_corrected = muts_lci_observed / muts_observed * muts_corrected,
-      indels_lci_observed = poisson.test(indels_observed)$conf.int[1],
-      indels_unique_lci_observed = poisson.test(indels_unique_observed)$conf.int[1],
-      muts_uci_observed = poisson.test(muts_observed)$conf.int[2],
-      muts_uci_corrected = muts_uci_observed / muts_observed * muts_corrected,
-      indels_uci_observed = poisson.test(indels_observed)$conf.int[2],
-      indels_unique_uci_observed = poisson.test(indels_unique_observed)$conf.int[2],
-      burden_lci_observed = muts_lci_observed / total_observed,
-      burden_lci_corrected = muts_lci_corrected / total_corrected,
-      burden_indels_lci_observed = indels_lci_observed / total_observed,
-      burden_indels_unique_lci_observed = indels_unique_lci_observed / total_observed,
-      burden_uci_observed = muts_uci_observed / total_observed,
-      burden_uci_corrected = muts_uci_corrected / total_corrected,
-      burden_indels_uci_observed = indels_uci_observed / total_observed,
-      burden_indels_unique_uci_observed = indels_unique_uci_observed / total_observed
-    )
+    ) %>%
+    	mutate(
+	    	burden_observed = muts_observed / total_observed,
+	    	burden_corrected = muts_corrected / total_corrected,
+	    	burden_indels_observed = indels_observed / total_observed,
+	    	burden_indels_unique_observed = indels_unique_observed / total_observed,
+	    	muts_lci_observed = poisson.test(muts_observed)$conf.int[1],
+	    	muts_lci_corrected = muts_lci_observed / muts_observed * muts_corrected,
+	    	indels_lci_observed = poisson.test(indels_observed)$conf.int[1],
+	    	indels_unique_lci_observed = poisson.test(indels_unique_observed)$conf.int[1],
+	    	muts_uci_observed = poisson.test(muts_observed)$conf.int[2],
+	    	muts_uci_corrected = muts_uci_observed / muts_observed * muts_corrected,
+	    	indels_uci_observed = poisson.test(indels_observed)$conf.int[2],
+	    	indels_unique_uci_observed = poisson.test(indels_unique_observed)$conf.int[2],
+	    	burden_lci_observed = muts_lci_observed / total_observed,
+	    	burden_lci_corrected = muts_lci_corrected / total_corrected,
+	    	burden_indels_lci_observed = indels_lci_observed / total_observed,
+	    	burden_indels_unique_lci_observed = indels_unique_lci_observed / total_observed,
+	    	burden_uci_observed = muts_uci_observed / total_observed,
+	    	burden_uci_corrected = muts_uci_corrected / total_corrected,
+	    	burden_indels_uci_observed = indels_uci_observed / total_observed,
+	    	burden_indels_unique_uci_observed = indels_unique_uci_observed / total_observed
+    	)
     
     results.SSC_mismatches_purine[[sample_name]] <- read.delim(paste0(dir,"/results.SSC-mismatches-Purine.triprofiles.tsv"), header=FALSE) %>%
       mutate(tri = str_c(str_sub(V1,1,4),str_sub(V1,1,1),str_sub(V1,5,5),str_sub(V1,3,3))) %>%
@@ -260,7 +249,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   # b) sample trinucleotide background counts
   # c) ratios of the sample trinucleotide background counts to the genome trinucleotide background counts
   # d) observed unique mutation counts. Note: using unique mutation counts, since that is a more faithful representation of the mutational process.
-  indel.spectra.sigfit <- bind_rows(indel.spectra,.id="sample") %>%
+  indel_counts.sigfit <- bind_rows(indel_counts,.id="sample") %>%
     column_to_rownames("sample")
   
   results.sample_tri_bg.sigfit <- results.trint_counts_and_ratio2genome %>%
@@ -297,7 +286,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     vcf_snp.fix = vcf_snp.fix,
     vcf_indel.fix = vcf_indel.fix,
     vcf_indel.gt = vcf_indel.gt,
-    indel.spectra.sigfit = indel.spectra.sigfit,
+    indel_counts.sigfit = indel_counts.sigfit,
     trinuc_bg_counts_ratio = results.trint_counts_and_ratio2genome,
     trinuc_bg_counts.sigfit = results.sample_tri_bg.sigfit,
     trinuc_bg_ratio.sigfit = results.ratio2genome.sigfit,
