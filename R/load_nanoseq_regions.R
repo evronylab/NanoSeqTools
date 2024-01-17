@@ -98,10 +98,10 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		
 		#Calculate trinucleotide counts for each region set
 		trinuc_bg_counts_ratio[[sample_name]] <- map(trinuc_bg_counts_ratio[[sample_name]],function(x){
-			rep(x$tri,x$coverage) %>%
+			mcols(x)[,c("tri","coverage")] %>%
 				as.data.frame %>%
-				set_names("tri") %>%
-				dplyr::count(tri) %>%
+				group_by(tri) %>%
+				summarize(n=sum(coverage)) %>%
 				left_join(data.frame(tri=trinucleotides_64),.,by="tri") %>%
 				replace(is.na(.),0) %>%
 				deframe %>%
