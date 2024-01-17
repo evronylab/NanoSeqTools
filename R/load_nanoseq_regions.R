@@ -74,7 +74,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		# Note, import function transforms bed coordinates to 1-based coordinates, which matched the mutation VCF 1-based coordinates.
 		
 		 #Load bed coverage information for all regions across all region sets.
-		tmp.regions.all <- tempfile()
+		tmp.regions.all <- tempfile(fileext=".bed")
 		regions.list %>% unlist %>% reduce(ignore.strand=TRUE) %>% sort %>% export(con=tmp.regions.all,format="bed")
 		
 		tmp.bedcov.all <- tempfile()
