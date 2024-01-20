@@ -101,8 +101,8 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     if(!is.null(exclude_regions)){
     	
     	#Load coverage information for exclude_regions
-    	tmp.exclude_regions <- tempfile()
-    	exclude_regions %>% reduce %>% export(con=tmp.exclude_regions,format="bed")
+    	tmp.exclude_regions <- tempfile(fileext=".bed")
+    	exclude_regions %>% reduce(ignore.strand=TRUE) %>% export(con=tmp.exclude_regions,format="bed")
     	
     	tmp.bedcov.exclude_regions <- tempfile()
     	system(paste(tabix_bin,paste0(dir,"/results.cov.bed.gz"),"-R",tmp.exclude_regions,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.exclude_regions))
