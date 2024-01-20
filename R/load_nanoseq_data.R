@@ -118,10 +118,10 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     	}else{
     		#Calculate trinucleotide counts for exclude_regions
     		colnames(mcols(bedcov.exclude_regions)) <- c("coverage","tri","ref")
-    		bedcov.exclude_regions <- rep(bedcov.exclude_regions$tri,bedcov.exclude_regions$coverage) %>%
+    		bedcov.exclude_regions <- mcols(bedcov.exclude_regions)[,c("tri","coverage")] %>%
     			as.data.frame %>%
-    			set_names("tri") %>%
-    			dplyr::count(tri) %>%
+    		  group_by(tri) %>%
+    		  summarize(n=sum(coverage)) %>%
     			left_join(data.frame(tri=trinucleotides_64),.,by="tri") %>%
     			replace(is.na(.),0) %>%
     			deframe %>%
