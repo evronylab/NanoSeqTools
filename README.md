@@ -132,7 +132,7 @@ Load NanoSeq data for region-specific analysis.
 
 * observed_trinuc_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed mutation counts, with one row per sample and one column per trinucleotide substitution context.
 
-* mutation_burden, with one row per sample/region combination. All substitution mutation statistics include all mutations, not just unique mutations. Indel statistics are calculated both for all and for unique mutations. Indel statistics are calculated both for all and for unique mutations and do not take into account strand regardless of region strand and the ignore.strand setting.
+* mutation_burden, with one row per sample/region combination. All substitution mutation statistics include all mutations, not just unique mutations. Indel statistics are calculated both for all and for unique mutations and do not take into account strand regardless of region strand and the ignore.strand setting.
 	- The number of observed and corrected substitution mutations (muts_observed and muts_corrected)
 	- Number of all and unique observed indels (indels_observed, indels_unique_observed)
 	- Total number of observed and corrected interrogated bases (total_observed and total_corrected; note: observed and corrected are the same)
