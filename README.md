@@ -21,7 +21,7 @@ This R package contains functions for analysis of NanoSeq data that was processe
 
 * BSgenome package corresponding to the reference genome used in the NanoSeq analysis
 
-* [tabix](http://www.htslib.org/download/) >=v1.10; part of htslib
+* [tabix](http://www.htslib.org/download/) >=v1.20; part of htslib
 
 ## Installation
 
