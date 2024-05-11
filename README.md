@@ -49,6 +49,8 @@ Load NanoSeq data for genome-wide analysis.
 
 * tabix_bin: Full path of tabix binary
 
+* tabix_threads Number of threads for tabix. Default = 1.
+
 #### Outputs
 A list containing the following data objects:
 
@@ -108,6 +110,8 @@ Load NanoSeq data for region-specific analysis.
 * ignore.strand: TRUE or FALSE (default). Whether to ignore strand information in regions.list.
 
 * tabix_bin: Full path of tabix binary
+
+* tabix_threads Number of threads for tabix. Default = 1.
 
 #### Outputs
 * sample_names: A vector of all sample IDs that were loaded

@@ -8,6 +8,7 @@
 #' @param regions.list GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. If ignore.strand = FALSE, the strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. If ignore.strand = TRUE, all mutations in the region are included regardless of strand. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Regions that are not in the contigs analyzed by the NanoSeq pipeline can be included in a 'region set', but they do not contribute any aspect of the data analysis. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
 #' @param ignore.strand TRUE or FALSE (default). Whether to ignore strand information in regions.list.
 #' @param tabix_bin Full path of tabix binary
+#' @param tabix_threads Number of threads for tabix. Default = 1.
 #' @return Returns NanoSeq results for each 'region set'. Samples without coverage of any of the regions are skipped and absent from the output.
 #' * sample_names: A vector of all sample IDs that were loaded
 #' * dir: A vector of the directories containing the NanoSeq results that were loaded
@@ -30,7 +31,7 @@
 #'  - Observed and corrected lower and upper confidence intervals of substitution mutation burdens and all and unique observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_indels_unique_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed, burden_indels_unique_uci_observed)
 #' @export
 
-load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE, tabix_bin){
+load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE, tabix_bin, tabix_threads = 1){
 
 	#Load packages required only by this function
 	suppressPackageStartupMessages(library(rtracklayer))
@@ -78,7 +79,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		regions.list %>% unlist %>% reduce(ignore.strand=TRUE) %>% sort %>% export(con=tmp.regions.all,format="bed")
 		
 		tmp.bedcov.all <- tempfile()
-		system(paste(tabix_bin,paste0(dir,"/results.cov.bed.gz"),"-R",tmp.regions.all,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
+		system(paste(tabix_bin,"-@",tabix_threads,"-R",tmp.regions.all,paste0(dir,"/results.cov.bed.gz"),"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
 		
 		bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
 		invisible(file.remove(tmp.regions.all,tmp.bedcov.all))
