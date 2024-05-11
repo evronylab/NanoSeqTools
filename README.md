@@ -45,7 +45,7 @@ Load NanoSeq data for genome-wide analysis.
 
 * BSgenomecontigs: A vector of numeric indices of the contigs of the BSgenome package from which to calculate the genome trinucleotide background (e.g., 1:24 for BSgenome.Hsapiens.UCSC.hg38, or 1:21 for BSgenome.Mmusculus.UCSC.mm10). This should match the contigs analyzed by the main NanoSeq pipeline.
 
-* exclude_regions A GRanges (strand is ignored) object with regions to filter from substitution and indel mutations, in addition to the NOISE mask used in the NanoSeq pipeline. This also subtracts those regions from the number of interrogated bases using the sample's bed coverage information. Note: deletions that only partially span an excluded region are not filtered, and insertions are excluded based on the POS single base coordinate in the VCF. Default is no regions (i.e. NULL).
+* exclude_regions A GRanges (strand is ignored) object with additional regions to filter from substitution and indel mutations. This also subtracts those regions from the number of interrogated bases using the sample's bed coverage information. Note: deletions that only partially span an excluded region are not filtered, and insertions are excluded based on the POS column's single base coordinate in the VCF. Default is no regions (i.e. NULL).
 
 * tabix_bin: Full path of tabix binary
 
@@ -60,7 +60,7 @@ A list containing the following data objects:
 
 * BSgenomecontigs: BSgenome contig indexes used for the analysis
 
-* exclude_regions: GRanges object of the input parameter of additoinal regions to filter
+* exclude_regions: GRanges object of the input parameter of additional regions to filter
 
 * vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations)
 
