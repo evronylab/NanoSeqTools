@@ -1,14 +1,11 @@
 #' Load NanoSeq data for region-specific analysis
-#' 
-#' Package requirements: tidyverse, rtracklayer, GenomicRanges, tabix binary
 #'
 #' This function loads NanoSeq data required for region-specific analysis.
 #'
 #' @param nanoseq_data Dataset resulting from load_nanoseq_data function
 #' @param regions.list GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. If ignore.strand = FALSE, the strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. If ignore.strand = TRUE, all mutations in the region are included regardless of strand. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Regions that are not in the contigs analyzed by the NanoSeq pipeline can be included in a 'region set', but they do not contribute any aspect of the data analysis. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
 #' @param ignore.strand TRUE or FALSE (default). Whether to ignore strand information in regions.list.
-#' @param tabix_bin Full path of tabix binary
-#' @param tabix_threads Number of threads for tabix. Default = 1.
+#' @param bedtools_bin Full path of bedtools binary
 #' @return Returns NanoSeq results for each 'region set'. Samples without coverage of any of the regions are skipped and absent from the output.
 #' * sample_names: A vector of all sample IDs that were loaded
 #' * dir: A vector of the directories containing the NanoSeq results that were loaded
@@ -31,7 +28,7 @@
 #'  - Observed and corrected lower and upper confidence intervals of substitution mutation burdens and all and unique observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_indels_unique_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed, burden_indels_unique_uci_observed)
 #' @export
 
-load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE, tabix_bin, tabix_threads = 1){
+load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE, bedtools_bin){
 
 	#Load packages required only by this function
 	suppressPackageStartupMessages(library(rtracklayer))
@@ -48,12 +45,24 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	dirs <- nanoseq_data$dirs
 	sample_names <- nanoseq_data$sample_names
 	
-	#Filter out exclude_regions from region sets, and remove strand information if ignore.strand = TRUE
+	#Filter out exclude_regions from region sets and remove strand information if ignore.strand = TRUE. Then add genome reference seqlevels in case not already present, so that the later reduce function correctly sorts the regions prior to BED file export.
 	regions.list <- map(regions.list,function(x) subtract(x,nanoseq_data$exclude_regions) %>% unlist) %>% GRangesList
 	
 	if(ignore.strand){
 		regions.list <- map(regions.list,function(x) {strand(x) <- "*"; return(x)}) %>% GRangesList
 	}
+	
+	for(i in 1:length(regions.list)){
+	  seqlevels(regions.list[[i]]) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
+	}
+	
+	#Make genome chrom info file (required for bedtools)
+	tmp.genomechrominfo <- tempfile()
+	bind_cols(
+	  seqnames=seqnames(eval(parse(text=BSgenomepackagename))),
+	  seqlengths=seqlengths(eval(parse(text=BSgenomepackagename)))
+	) %>%
+	  write_tsv(tmp.genomechrominfo,col_names=FALSE)
 	
 	#Convert BSgenome to StringSet object for indel spectrum loading
 	BSgenome.StringSet <- as(sapply(seqnames(eval(parse(text=nanoseq_data$BSgenomepackagename))),function(x){eval(parse(text=nanoseq_data$BSgenomepackagename))[[x]]}),"DNAStringSet")
@@ -71,15 +80,14 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		#Load NanoSeq bed coverage data for each 'region set'. First import coverage data for all regions combined for efficiency,
 		# and then separate the results by region set.
 		# Note, NanoSeq bed coverage data does not depend on strand information, since the coverage and trinucleotide background are the same regardless of strand.
-		# Note, using tabix binary since it is much faster than R tabix functions.
 		# Note, import function transforms bed coordinates to 1-based coordinates, which matched the mutation VCF 1-based coordinates.
 		
-		 #Load bed coverage information for all regions across all region sets.
+		 #Load bed coverage information for all regions across all region sets. Note, reduce function sorts by seqlevels, so there is no need to separately sort prior to export.
 		tmp.regions.all <- tempfile(fileext=".bed")
-		regions.list %>% unlist %>% reduce(ignore.strand=TRUE) %>% sort %>% export(con=tmp.regions.all,format="bed")
+		regions.list %>% unlist %>% reduce(ignore.strand=TRUE) %>% export(con=tmp.regions.all,format="bed")
 		
 		tmp.bedcov.all <- tempfile()
-		system(paste(tabix_bin,"-@",tabix_threads,"-R",tmp.regions.all,paste0(dir,"/results.cov.bed.gz"),"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
+		system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.regions.all,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
 		
 		bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
 		invisible(file.remove(tmp.regions.all,tmp.bedcov.all))
@@ -216,7 +224,10 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		
 	}
 	close(pb)
-
+  
+	#Delete temporary files
+	invisible(file.remove(tmp.genomechrominfo))
+	
 	# Collapse lists to data frames
 	message("Combining sample data into data frames...")
 	

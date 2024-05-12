@@ -21,7 +21,7 @@ This R package contains functions for analysis of NanoSeq data that was processe
 
 * BSgenome package corresponding to the reference genome used in the NanoSeq analysis
 
-* [tabix](http://www.htslib.org/download/) >=v1.20; part of htslib
+* [bedtools](https://bedtools.readthedocs.io) >=v2.31.1
 
 ## Installation
 
@@ -47,9 +47,7 @@ Load NanoSeq data for genome-wide analysis.
 
 * exclude_regions A GRanges (strand is ignored) object with additional regions to filter from substitution and indel mutations. This also subtracts those regions from the number of interrogated bases using the sample's bed coverage information. Note: deletions that only partially span an excluded region are not filtered, and insertions are excluded based on the POS column's single base coordinate in the VCF. Default is no regions (i.e. NULL).
 
-* tabix_bin: Full path of tabix binary
-
-* tabix_threads Number of threads for tabix. Default = 1.
+* bedtools_bin: Full path of bedtools binary
 
 #### Outputs
 A list containing the following data objects:
@@ -109,9 +107,7 @@ Load NanoSeq data for region-specific analysis.
 
 * ignore.strand: TRUE or FALSE (default). Whether to ignore strand information in regions.list.
 
-* tabix_bin: Full path of tabix binary
-
-* tabix_threads Number of threads for tabix. Default = 1.
+* bedtools_bin: Full path of bedtools binary
 
 #### Outputs
 * sample_names: A vector of all sample IDs that were loaded

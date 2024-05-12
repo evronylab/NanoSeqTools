@@ -8,8 +8,7 @@ load_nanoseq_regions(
   nanoseq_data,
   regions.list,
   ignore.strand = FALSE,
-  tabix_bin,
-  tabix_threads = 1
+  bedtools_bin
 )
 }
 \arguments{
@@ -19,9 +18,7 @@ load_nanoseq_regions(
 
 \item{ignore.strand}{TRUE or FALSE (default). Whether to ignore strand information in regions.list.}
 
-\item{tabix_bin}{Full path of tabix binary}
-
-\item{tabix_threads}{Number of threads for tabix. Default = 1.}
+\item{bedtools_bin}{Full path of bedtools binary}
 }
 \value{
 Returns NanoSeq results for each 'region set'. Samples without coverage of any of the regions are skipped and absent from the output.
@@ -50,8 +47,5 @@ Returns NanoSeq results for each 'region set'. Samples without coverage of any o
 }
 }
 \description{
-Package requirements: tidyverse, rtracklayer, GenomicRanges, tabix binary
-}
-\details{
 This function loads NanoSeq data required for region-specific analysis.
 }
