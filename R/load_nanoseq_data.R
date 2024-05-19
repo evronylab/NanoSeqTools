@@ -48,19 +48,19 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     stop("Length of dirs does not equal length of sample_names!")
   }
   
-   # Make genome chrom info file (required for bedtools), and export exclude_regions to BED file after removing strand information (if present). Note, reduce function sorts by seqlevels, so there is no need to separately sort prior to export.
+   # Make genome chrom info file (required for bedtools), and export exclude_regions to BED file after assigning reference genome seqlevels and removing strand information (if present). Note, reduce function sorts by seqlevels, so there is no need to separately sort prior to export.
   if(!is.null(exclude_regions)){
-    tmp.genomechrominfo <- tempfile()
-    bind_cols(
-      seqnames=seqnames(eval(parse(text=BSgenomepackagename))),
-      seqlengths=seqlengths(eval(parse(text=BSgenomepackagename)))
-    ) %>%
-      write_tsv(tmp.genomechrominfo,col_names=FALSE)
-    
+  	tmp.genomechrominfo <- tempfile()
+  	bind_cols(
+  		seqnames=seqnames(eval(parse(text=BSgenomepackagename))),
+  		seqlengths=seqlengths(eval(parse(text=BSgenomepackagename)))
+  	) %>%
+  		write_tsv(tmp.genomechrominfo,col_names=FALSE)
+  	
     seqlevels(exclude_regions) <- seqlevels(eval(parse(text=BSgenomepackagename)))
   	strand(exclude_regions) <- "*"
   	tmp.exclude_regions <- tempfile(fileext=".bed")
-  	exclude_regions %>% reduce(ignore.strand=TRUE) %>% export(con=tmp.exclude_regions,format="bed")
+  	exclude_regions %>% GenomicRanges::reduce(ignore.strand=TRUE) %>% export(con=tmp.exclude_regions,format="bed")
   }
   
   # Initialize lists for results
@@ -110,9 +110,10 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     	
     	#Load coverage information for exclude_regions
     	tmp.bedcov.exclude_regions <- tempfile()
-    	system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.exclude_regions,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.exclude_regions))
+    	system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.exclude_regions,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.exclude_regions))
     	
     	bedcov.exclude_regions <- import(tmp.bedcov.exclude_regions,format="bedgraph")
+    	seqlevels(bedcov.exclude_regions) <- seqlevels(eval(parse(text=BSgenomepackagename)))
     	invisible(file.remove(tmp.bedcov.exclude_regions))
     	
     	if(length(bedcov.exclude_regions)==0){
@@ -137,12 +138,15 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     	
     	#Make temporary GRanges versions of vcf_snp.fix and vcf_indel.fix for filtering exclude_regions.
     	vcf_snp.fix.gr <- vcf_snp.fix[[sample_name]] %>% makeGRangesFromDataFrame(seqnames.field="CHROM",start.field="POS",end.field="POS")
+    	seqlevels(vcf_snp.fix.gr) <- seqlevels(eval(parse(text=BSgenomepackagename)))
+    	
     	vcf_indel.fix.gr <- vcf_indel.fix[[sample_name]] %>% vcf_indel_toGRanges
+    	seqlevels(vcf_indel.fix.gr) <- seqlevels(eval(parse(text=BSgenomepackagename)))
     	
     	#Filter snps and indels within exclude_regions
-    	vcf_snp.fix[[sample_name]] <- vcf_snp.fix[[sample_name]] %>% filter(suppressWarnings(countOverlaps(vcf_snp.fix.gr,exclude_regions)) == 0)
-    	vcf_indel.fix[[sample_name]] <- vcf_indel.fix[[sample_name]] %>% filter(suppressWarnings(countOverlaps(vcf_indel.fix.gr,exclude_regions,type="within")) == 0)
-    	vcf_indel.gt[[sample_name]] <- vcf_indel.gt[[sample_name]] %>% filter(suppressWarnings(countOverlaps(vcf_indel.fix.gr,exclude_regions,type="within")) == 0)
+    	vcf_snp.fix[[sample_name]] <- vcf_snp.fix[[sample_name]] %>% filter(countOverlaps(vcf_snp.fix.gr,exclude_regions) == 0)
+    	vcf_indel.fix[[sample_name]] <- vcf_indel.fix[[sample_name]] %>% filter(countOverlaps(vcf_indel.fix.gr,exclude_regions,type="within") == 0)
+    	vcf_indel.gt[[sample_name]] <- vcf_indel.gt[[sample_name]] %>% filter(countOverlaps(vcf_indel.fix.gr,exclude_regions,type="within") == 0)
     }
     
     # Calculate number of unique indel counts for each indel context
@@ -240,7 +244,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
   }
   close(pb)
   
-  #Delete exclude_regions temporary BED file
+  #Delete temporary files
   if(!is.null(exclude_regions)){
   	invisible(file.remove(tmp.genomechrominfo,tmp.exclude_regions))
   }

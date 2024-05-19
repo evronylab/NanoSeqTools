@@ -59,10 +59,10 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	#Make genome chrom info file (required for bedtools)
 	tmp.genomechrominfo <- tempfile()
 	bind_cols(
-	  seqnames=seqnames(eval(parse(text=BSgenomepackagename))),
-	  seqlengths=seqlengths(eval(parse(text=BSgenomepackagename)))
+		seqnames=seqnames(eval(parse(text=BSgenomepackagename))),
+		seqlengths=seqlengths(eval(parse(text=BSgenomepackagename)))
 	) %>%
-	  write_tsv(tmp.genomechrominfo,col_names=FALSE)
+		write_tsv(tmp.genomechrominfo,col_names=FALSE)
 	
 	#Convert BSgenome to StringSet object for indel spectrum loading
 	BSgenome.StringSet <- as(sapply(seqnames(eval(parse(text=nanoseq_data$BSgenomepackagename))),function(x){eval(parse(text=nanoseq_data$BSgenomepackagename))[[x]]}),"DNAStringSet")
@@ -84,12 +84,13 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		
 		 #Load bed coverage information for all regions across all region sets. Note, reduce function sorts by seqlevels, so there is no need to separately sort prior to export.
 		tmp.regions.all <- tempfile(fileext=".bed")
-		regions.list %>% unlist %>% reduce(ignore.strand=TRUE) %>% export(con=tmp.regions.all,format="bed")
+		regions.list %>% unlist %>% GenomicRanges::reduce(ignore.strand=TRUE) %>% export(con=tmp.regions.all,format="bed")
 		
 		tmp.bedcov.all <- tempfile()
-		system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.regions.all,"| sed 's/;/\t/g' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
+		system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.regions.all,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
 		
 		bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
+		seqlevels(bedcov.all) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
 		invisible(file.remove(tmp.regions.all,tmp.bedcov.all))
 		
 		#Skip samples without coverage in any regions
@@ -101,9 +102,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		colnames(mcols(bedcov.all)) <- c("coverage","tri","ref")
 		
 		#Extract bed coverage information for each region set
-		 # Note, suppressing warnings for situations when there is a chromosome in the region.list that is not in the coverage data and
-		 # a chromosome in the coverage data that is not in the region.list.
-		trinuc_bg_counts_ratio[[sample_name]] <- map(regions.list,function(x) suppressWarnings(subsetByOverlaps(bedcov.all,x)))
+		trinuc_bg_counts_ratio[[sample_name]] <- map(regions.list,function(x) subsetByOverlaps(bedcov.all,x))
 		
 		#Calculate trinucleotide counts for each region set
 		trinuc_bg_counts_ratio[[sample_name]] <- map(trinuc_bg_counts_ratio[[sample_name]],function(x){
@@ -139,23 +138,24 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		           strand=if_else(REF %in% c("C","T"),"+","-")) %>%
 		    select(-c(REF,ALT,INFO)) %>%
 		    makeGRangesFromDataFrame(seqnames.field="CHROM",start.field="POS",end.field="POS",keep.extra.columns=TRUE)
+		seqlevels(vcf_snp.fix.gr) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
+		
 		vcf_indel.fix.gr <- nanoseq_data$vcf_indel.fix[[sample_name]] %>% vcf_indel_toGRanges
+		seqlevels(vcf_indel.fix.gr) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
 		
 		 #Extract mutations in each region set, taking into account strand information for substitutions but not for indels.
 		 # Note, trint_subst_corrected and trint_subst_unique_corrected can have values of NaN when both the numerator and denominator
 		 #  values used to calculate them are both 0, and they can have values of Inf when only the denominator is 0.
-		 # Note, suppressing warnings for situations when the mutations granges and the region set both have at least one
-		 #  chromosome that is not in the other.
 		vcf_snp.fix[[sample_name]] <- map(regions.list,function(x){
 			left_join(
 				data.frame(tri=trint_subs_labels),
-				suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr,x,ignore.strand=FALSE)) %>%
+				subsetByOverlaps(vcf_snp.fix.gr,x,ignore.strand=FALSE) %>%
 					as_tibble %>%
 					dplyr::count(tri,name="trint_subst_observed"),
 				by="tri"
 			) %>%
 			left_join(
-	    	suppressWarnings(subsetByOverlaps(vcf_snp.fix.gr,x,ignore.strand=FALSE)) %>%
+	    	subsetByOverlaps(vcf_snp.fix.gr,x,ignore.strand=FALSE) %>%
 	    		as_tibble %>%
 	    		distinct %>%
 	    		dplyr::count(tri,name="trint_subst_unique_observed"),
@@ -174,7 +174,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		})
 		
 		vcf_indel.fix <- map(regions.list,function(x){
-			nanoseq_data$vcf_indel.fix[[sample_name]] %>% filter(suppressWarnings(countOverlaps(vcf_indel.fix.gr,x,type="within",ignore.strand=TRUE)) > 0)
+			nanoseq_data$vcf_indel.fix[[sample_name]] %>% filter(countOverlaps(vcf_indel.fix.gr,x,type="within",ignore.strand=TRUE) > 0)
 		})
 		
 		# Calculate number of unique indel counts for each indel context for each 'region set'
@@ -224,10 +224,10 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		
 	}
 	close(pb)
-  
+	
 	#Delete temporary files
 	invisible(file.remove(tmp.genomechrominfo))
-	
+  
 	# Collapse lists to data frames
 	message("Combining sample data into data frames...")
 	

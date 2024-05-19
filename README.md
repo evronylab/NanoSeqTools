@@ -21,7 +21,7 @@ This R package contains functions for analysis of NanoSeq data that was processe
 
 * BSgenome package corresponding to the reference genome used in the NanoSeq analysis
 
-* [bedtools](https://bedtools.readthedocs.io) >=v2.31.1
+* [BEDTools](https://bedtools.readthedocs.io) >= v2.31.1
 
 ## Installation
 
