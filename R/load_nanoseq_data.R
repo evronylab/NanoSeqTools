@@ -119,6 +119,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, BSgenomec
     	if(length(bedcov.exclude_regions)==0){
     		bedcov.exclude_regions <- data.frame(tri=trinucleotides_64,exclude_tri_bg=0) %>%
     			deframe %>%
+    			trinucleotide64to32 %>%
     			as_tibble(rownames="tri") %>%
     			dplyr::rename(exclude_tri_bg=value)
     	}else{

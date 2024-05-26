@@ -59,8 +59,8 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	#Make genome chrom info file (required for bedtools)
 	tmp.genomechrominfo <- tempfile()
 	bind_cols(
-		seqnames=seqnames(eval(parse(text=BSgenomepackagename))),
-		seqlengths=seqlengths(eval(parse(text=BSgenomepackagename)))
+		seqnames=seqnames(eval(parse(text=nanoseq_data$BSgenomepackagename))),
+		seqlengths=seqlengths(eval(parse(text=nanoseq_data$BSgenomepackagename)))
 	) %>%
 		write_tsv(tmp.genomechrominfo,col_names=FALSE)
 	
