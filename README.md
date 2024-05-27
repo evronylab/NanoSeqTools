@@ -43,7 +43,7 @@ Load NanoSeq data for genome-wide analysis.
 
 * BSgenomepackagename: A string of a BSgenome package corresponding to the reference genome used in the Nanoseq analysis (e.g., "BSgenome.Hsapiens.UCSC.hg38" or "BSgenome.Mmusculus.UCSC.mm10"). This is used to calculate the genome trinucleotide background and corrected substitution counts and burdens.
 
-* BSgenomecontigs: A vector of numeric indices of the contigs of the BSgenome package from which to calculate the genome trinucleotide background (e.g., 1:24 for BSgenome.Hsapiens.UCSC.hg38, or 1:21 for BSgenome.Mmusculus.UCSC.mm10). This should match the contigs analyzed by the main NanoSeq pipeline.
+* genome_contigs: A character vector of reference genome contig names from which to calculate the genome trinucleotide background. This should match the contigs analyzed by the main NanoSeq pipeline.
 
 * exclude_regions A GRanges (strand is ignored) object with additional regions to filter from substitution and indel mutations. This also subtracts those regions from the number of interrogated bases using the sample's bed coverage information. Note: deletions that only partially span an excluded region are not filtered, and insertions are excluded based on the POS column's single base coordinate in the VCF. Default is no regions (i.e. NULL).
 
@@ -58,7 +58,7 @@ A list containing the following data objects:
 
 * BSgenomepackagename: BSgenome package name used for the analysis
 
-* BSgenomecontigs: BSgenome contig indexes used for the analysis
+* genome_contigs: reference genome contig names used for the analysis
 
 * exclude_regions: GRanges object of the input parameter of additional regions to filter
 
