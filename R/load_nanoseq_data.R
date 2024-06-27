@@ -110,7 +110,9 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, genome_co
     	
     	#Load coverage information for exclude_regions
     	tmp.bedcov.exclude_regions <- tempfile()
-    	system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.exclude_regions,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.exclude_regions))
+    	cmdoutput <- system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.exclude_regions,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.exclude_regions))
+    	
+    	if(cmdoutput != 0){stop("Stopping: error in BEDTools command!")}
     	
     	bedcov.exclude_regions <- import(tmp.bedcov.exclude_regions,format="bedgraph")
     	seqlevels(bedcov.exclude_regions) <- seqlevels(eval(parse(text=BSgenomepackagename)))

@@ -87,7 +87,9 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		regions.list %>% unlist %>% GenomicRanges::reduce(ignore.strand=TRUE) %>% export(con=tmp.regions.all,format="bed")
 		
 		tmp.bedcov.all <- tempfile()
-		system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.regions.all,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
+		cmdoutput <- system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.regions.all,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
+		
+		if(cmdoutput != 0){stop("Stopping: error in BEDTools command!")}
 		
 		bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
 		seqlevels(bedcov.all) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
