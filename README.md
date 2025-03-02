@@ -142,6 +142,6 @@ Load NanoSeq data for region-specific analysis.
 	- Observed and corrected lower and upper confidence intervals of substitution mutation burdens and all and unique observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_indels_unique_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed, burden_indels_unique_uci_observed)
 
 ## Citation
-If you use NanoSeqTools, please cite Srinivasa A and Evrony GD. (2024). NanoSeqTools [Computer software]. https://github.com/evronylab/NanoSeqTools
+NanoSeqTools was written by Amoolya Srinivasa and Gilad Evrony. If you use NanoSeqTools, please cite Shoag J, Srinivasa A, et al. Direct measurement of the male germline mutation rate in individuals using sequential sperm samples. Nature Communications (2025).
 
 NanoSeqTools also incorporates code from [indelwald](https://github.com/MaximilianStammnitz/Indelwald). Citation: The evolution of two transmissible cancers in Tasmanian devils (Stammnitz et al. 2023, Science 380:6642)
