@@ -106,6 +106,9 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		#Extract bed coverage information for each region set
 		trinuc_bg_counts_ratio[[sample_name]] <- map(regions.list,function(x) subsetByOverlaps(bedcov.all,x))
 		
+		rm(bedcov.all)
+		invisible(gc())
+		
 		#Calculate trinucleotide counts for each region set
 		trinuc_bg_counts_ratio[[sample_name]] <- map(trinuc_bg_counts_ratio[[sample_name]],function(x){
 			mcols(x)[,c("tri","coverage")] %>%
