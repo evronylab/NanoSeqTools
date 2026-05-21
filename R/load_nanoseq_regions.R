@@ -12,7 +12,7 @@
 #' * regions.list: Copy of input regions.list
 #' * excluded_samples: Names of samples excluded from the results because they do not have NanoSeq read coverage in any regions
 #' * indel_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context. Indel counts do not take into account strand information regardless of region strand and the ignore.strand setting.
-#' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. for each sample/region set, the number of each trinucleotide context in the genomic region set), and the normalized ratio of these for each sample/region set combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
+#' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome-wide trinucleotide background counts, and the normalized ratio of the sample/region-set trinucleotide distribution to the genome-wide trinucleotide distribution. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 #' * trinuc_bg_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 #' * trinuc_bg_ratio.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
 #' * genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
@@ -45,6 +45,10 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	dirs <- nanoseq_data$dirs
 	sample_names <- nanoseq_data$sample_names
 	
+	if(is.null(nanoseq_data$exclude_regions)){
+		nanoseq_data$exclude_regions <- GenomicRanges::GRanges()
+	}
+
 	#Filter out exclude_regions from region sets and remove strand information if ignore.strand = TRUE. Then add genome reference seqlevels in case not already present, so that the later reduce function correctly sorts the regions prior to BED file export.
 	regions.list <- map(regions.list,function(x) subtract(x,nanoseq_data$exclude_regions) %>% unlist) %>% GRangesList
 	
@@ -300,6 +304,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	  })
 	
 	#Remove excluded samples from output
+	excluded_sample_names <- sample_names[excluded_samples]
 	if(!is.null(excluded_samples)){
 	  sample_names <- sample_names[-excluded_samples]
 	  dirs <- dirs[-excluded_samples]
@@ -309,7 +314,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		sample_names = sample_names,
 		dirs = dirs,
 		regions.list = regions.list,
-		excluded_samples = sample_names[excluded_samples],
+		excluded_samples = excluded_sample_names,
 		indel_counts.sigfit = indel_counts.sigfit,
 		trinuc_bg_counts_ratio = trinuc_bg_counts_ratio,
 		trinuc_bg_counts.sigfit = trinuc_bg_counts.sigfit,
