@@ -1,6 +1,6 @@
 # **NanoSeqTools**
 
-This R package contains functions for analysis of NanoSeq data that was processed with the standard [NanoSeq pipeline](https://github.com/cancerit/NanoSeq).
+This R package contains functions for analysis of NanoSeq data that was processed with the standard [NanoSeq pipeline](https://github.com/cancerit/NanoSeq) or [DupCaller](https://github.com/AlexandrovLab/DupCaller).
 
 ### Outline
 - [Prerequisites](#prerequisites)
@@ -34,10 +34,10 @@ devtools::install_github('https://github.com/evronylab/NanoSeqTools/')
 
 ## Usage
 ### load_nanoseq_data
-Load NanoSeq data for genome-wide analysis.
+Load NanoSeq or DupCaller data for genome-wide analysis.
 
 ##### Arguments
-* dirs: A character vector of the directories containing NanoSeq results to load (one directory per sample).
+* dirs: A character vector of the directories containing NanoSeq or DupCaller results to load (one directory per sample).
 
 * sample_names: A character vector of the sample names to assign to the results, in the same order as the directories in 'dirs'.
 
@@ -49,12 +49,22 @@ Load NanoSeq data for genome-wide analysis.
 
 * bedtools_bin: Full path of bedtools binary
 
+* source: Either "nanoseq" for cancerit/NanoSeq results or "dupcaller" for AlexandrovLab/DupCaller results. Default is "nanoseq".
+
+* dupcaller_result_prefixes: A character vector of DupCaller output prefixes, in the same order as 'dirs'. If NULL, basename(dirs) is used. This is only used when source = "dupcaller". Expected DupCaller files are `{prefix}_snv.vcf`, `{prefix}_indel.vcf`, `{prefix}_coverage.bed.gz`, `{prefix}_trinuc_by_duplex_group.txt`, and `{prefix}_stats.txt`.
+
 #### Outputs
 A list containing the following data objects:
 
 * sample_names: A vector of all sample IDs that were loaded
 
-* dirs: A vector of the directories containing the NanoSeq results that were loaded
+* dirs: A vector of the directories containing the NanoSeq or DupCaller results that were loaded
+
+* source: For DupCaller data, source pipeline used to generate the loaded result files ("dupcaller")
+
+* dupcaller_result_prefixes: For DupCaller data, resolved DupCaller result prefixes
+
+* dupcaller_result_paths: For DupCaller data, resolved DupCaller result file paths
 
 * BSgenomepackagename: BSgenome package name used for the analysis
 
@@ -62,7 +72,7 @@ A list containing the following data objects:
 
 * exclude_regions: GRanges object of the input parameter of additional regions to filter
 
-* vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations)
+* vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations). For DupCaller data, this can include PASS SNVs and MNVs, but only single-base SNVs are used for SBS96 counts and burdens.
 
 * vcf_indel.fix: List (one object per sample) containing the fixed information (fix) from the indel vcf (only FILTER = PASS mutations)
 
@@ -90,18 +100,19 @@ A list containing the following data objects:
 	- All and unique observed indel mutation burden (burden_indels_observed and burden_indels_unique_observed)
 	- Observed and corrected lower and upper confidence intervals of substitution mutation counts and all and unique observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, indels_unique_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed, indels_unique_uci_observed)
 	- Observed and corrected lower and upper confidence intervals of substitution mutation burdens and all and unique observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_indels_unique_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed, burden_indels_unique_uci_observed)
+	- For DupCaller data, indel burdens use DupCaller's indel-callable coverage and mutation_burden also includes total_indel_observed and total_indel_corrected.
 
-* purine_trinuc_mismatches: Data frame of the number of single-strand consensus purine mismatches. Columns: sample, tri (trinucleotide context), value.
+* purine_trinuc_mismatches: Data frame of the number of single-strand consensus purine mismatches. Columns: sample, tri (trinucleotide context), value. This is NULL for DupCaller data.
 
-* pyrimidine_trinuc_mismatches: Data frame of the number of single-strand consensus pyrimidine mismatches. Columns: sample, tri (trinucleotide context), value.
+* pyrimidine_trinuc_mismatches: Data frame of the number of single-strand consensus pyrimidine mismatches. Columns: sample, tri (trinucleotide context), value. This is NULL for DupCaller data.
 
-* estimated_error_rates: Data frame of the probability of having independent errors affecting both strands and resulting in a false-positive double-strand mutation and the number of estimated false positive double-strand mutations, based on the independent error rates in the purine channels. Columns: sample, total_error_rate, total_errors.
+* estimated_error_rates: Data frame of the probability of having independent errors affecting both strands and resulting in a false-positive double-strand mutation and the number of estimated false positive double-strand mutations, based on the independent error rates in the purine channels. Columns: sample, total_error_rate, total_errors. This is NULL for DupCaller data.
 
 ### load_nanoseq_regions
-Load NanoSeq data for region-specific analysis.
+Load NanoSeq or DupCaller data for region-specific analysis.
 
 ##### Arguments
-* nanoseq_data: Dataset resulting from load_nanoseq_data function
+* nanoseq_data: Dataset resulting from load_nanoseq_data function. Both source = "nanoseq" and source = "dupcaller" objects are supported.
 
 * regions.list: GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. If ignore.strand = FALSE, the strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. If ignore.strand = TRUE, all mutations in the region are included regardless of strand. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Regions that are not in the contigs analyzed by the NanoSeq pipeline can be included in a 'region set', but they do not contribute any aspect of the data analysis. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
 
@@ -120,7 +131,7 @@ Load NanoSeq data for region-specific analysis.
 
 * indel_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context. Indel counts do not take into account strand information regardless of region strand and the ignore.strand setting.
 
-* trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these for each sample/region combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
+* trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these for each sample/region combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome. For DupCaller data, this also includes sample_indel_tri_bg.
 
 * trinuc_bg_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 

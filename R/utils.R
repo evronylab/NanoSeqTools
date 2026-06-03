@@ -49,6 +49,90 @@ vcf_indel_toGRanges <- function(x){
 	return(x)
 }
 
+#Function to keep DupCaller SNV records that can be represented in SBS96 space
+dupcaller_sbs_variants <- function(x){
+	x$TN <- str_replace(x$INFO,"(^|.*;)TN=","")
+	x$TN <- str_replace(x$TN,";.*","")
+	x$TN[!str_detect(x$INFO,"(^|;)TN=")] <- NA_character_
+	ref <- toupper(as.character(x$REF))
+	alt <- toupper(as.character(x$ALT))
+	tri <- toupper(as.character(x$TN))
+	x$tri <- NA_character_
+	valid <- !is.na(ref) & !is.na(alt) & !is.na(tri) &
+		nchar(ref) == 1 & nchar(alt) == 1 & nchar(tri) == 3 &
+		ref %in% c("A","C","G","T") & alt %in% c("A","C","G","T") &
+		tri %in% trinucleotides_64
+	if(any(valid)){
+		tri_norm <- tri
+		alt_norm <- alt
+		purine_ref <- valid & ref %in% c("A","G")
+		if(any(purine_ref)){
+			tri_norm[purine_ref] <- as.character(reverseComplement(DNAStringSet(tri[purine_ref])))
+			alt_norm[purine_ref] <- as.character(complement(DNAStringSet(alt[purine_ref])))
+		}
+		x$tri[valid] <- str_c(tri_norm[valid],">",str_sub(tri_norm[valid],1,1),alt_norm[valid],str_sub(tri_norm[valid],3,3))
+	}
+	x <- x %>%
+		mutate(strand=if_else(REF %in% c("C","T"),"+","-")) %>%
+		filter(!is.na(tri))
+	return(x)
+}
+
+#Function to import a DupCaller per-position coverage BED file after BEDTools intersection
+read_dupcaller_coverage_bed <- function(path){
+	if(file.info(path)$size == 0){
+		return(data.frame(CHROM=character(),START=integer(),END=integer(),snv_coverage=numeric(),indel_coverage=numeric()))
+	}
+	x <- read.delim(path,header=FALSE)
+	if(ncol(x) < 5){
+		stop("DupCaller coverage BED must have at least 5 columns!")
+	}
+	x <- x[,1:5]
+	colnames(x) <- c("CHROM","START","END","snv_coverage","indel_coverage")
+	return(x)
+}
+
+#Function to annotate DupCaller per-position coverage with reference trinucleotide context
+annotate_dupcaller_coverage_trinuc <- function(x,BSgenome_object){
+	if(nrow(x) == 0){
+		x$tri <- character()
+		return(x)
+	}
+	x$POS <- x$START + 1
+	x$tri <- NA_character_
+	for(chrom in intersect(unique(x$CHROM),seqnames(BSgenome_object))){
+		idx <- which(x$CHROM == chrom)
+		idx <- idx[x$POS[idx] > 1 & x$POS[idx] < seqlengths(BSgenome_object)[chrom]]
+		if(length(idx) > 0){
+			x$tri[idx] <- as.character(subseq(BSgenome_object[[chrom]],start=x$POS[idx] - 1,end=x$POS[idx] + 1))
+		}
+	}
+	x <- x %>% filter(tri %in% trinucleotides_64)
+	return(x)
+}
+
+#Function to aggregate annotated coverage by pyrimidine-centered trinucleotide context
+dupcaller_annotated_coverage_trinuc_counts <- function(x,coverage_col,count_col){
+	if(nrow(x) == 0){
+		result <- data.frame(tri=trinucleotides_64,value=0) %>%
+			deframe %>%
+			trinucleotide64to32 %>%
+			as_tibble(rownames="tri")
+		colnames(result)[2] <- count_col
+		return(result)
+	}
+	result <- x %>%
+		group_by(tri) %>%
+		summarize(n=sum(.data[[coverage_col]],na.rm=TRUE),.groups="drop") %>%
+		left_join(data.frame(tri=trinucleotides_64),.,by="tri") %>%
+		replace(is.na(.),0) %>%
+		deframe %>%
+		trinucleotide64to32 %>%
+		as_tibble(rownames="tri")
+	colnames(result)[2] <- count_col
+	return(result)
+}
+
 #Function to import indels for spectrum analysis, modified from INDELWALD package:
 ## Max Stammnitz; maxrupsta@gmail.com; University of Cambridge  ##
 ## Citation: The evolution of two transmissible cancers in Tasmanian devils (Stammnitz et al. 2023, Science 380:6642)

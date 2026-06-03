@@ -12,7 +12,7 @@ load_nanoseq_regions(
 )
 }
 \arguments{
-\item{nanoseq_data}{Dataset resulting from load_nanoseq_data function}
+\item{nanoseq_data}{Dataset resulting from load_nanoseq_data function. Both source = "nanoseq" and source = "dupcaller" objects are supported.}
 
 \item{regions.list}{GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. If ignore.strand = FALSE, the strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. If ignore.strand = TRUE, all mutations in the region are included regardless of strand. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Regions that are not in the contigs analyzed by the NanoSeq pipeline can be included in a 'region set', but they do not contribute any aspect of the data analysis. Best practice is to name the elements of regions.list, since these names are carried forward to the output.}
 
@@ -28,7 +28,7 @@ Returns NanoSeq results for each 'region set'. Samples without coverage of any o
 \item regions.list: Copy of input regions.list
 \item excluded_samples: Names of samples excluded from the results because they do not have NanoSeq read coverage in any regions
 \item indel_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context. Indel counts do not take into account strand information regardless of region strand and the ignore.strand setting.
-\item trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. for each sample/region set, the number of each trinucleotide context in the genomic region set), and the normalized ratio of these for each sample/region set combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
+\item trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. for each sample/region set, the number of each trinucleotide context in the genomic region set), and the normalized ratio of these for each sample/region set combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome. For DupCaller data, this also includes sample_indel_tri_bg.
 \item trinuc_bg_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 \item trinuc_bg_ratio.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
 \item genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
@@ -44,8 +44,9 @@ Returns NanoSeq results for each 'region set'. Samples without coverage of any o
 \item All and unique observed indel mutation burden (burden_indels_observed and burden_indels_unique_observed)
 \item Observed and corrected lower and upper confidence intervals of substitution mutation counts and all and unique observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, indels_unique_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed, indels_unique_uci_observed)
 \item Observed and corrected lower and upper confidence intervals of substitution mutation burdens and all and unique observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_indels_unique_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed, burden_indels_unique_uci_observed)
+\item For DupCaller data, indel burdens use DupCaller's indel-callable coverage and mutation_burden also includes total_indel_observed and total_indel_corrected.
 }
 }
 \description{
-This function loads NanoSeq data required for region-specific analysis.
+This function loads NanoSeq or DupCaller data required for region-specific analysis.
 }

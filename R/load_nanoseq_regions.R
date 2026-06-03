@@ -1,8 +1,8 @@
 #' Load NanoSeq data for region-specific analysis
 #'
-#' This function loads NanoSeq data required for region-specific analysis.
+#' This function loads NanoSeq or DupCaller data required for region-specific analysis.
 #'
-#' @param nanoseq_data Dataset resulting from load_nanoseq_data function
+#' @param nanoseq_data Dataset resulting from load_nanoseq_data function. Both source = "nanoseq" and source = "dupcaller" objects are supported.
 #' @param regions.list GRangesList object, comprised of GRanges that each contains a 'region set' to jointly analyze. The regions within each 'region set' can have overlaps (the functions handle this). Regions that were excluded when running load_nanoseq_data ('exclude_regions') are excluded from all region sets. If ignore.strand = FALSE, the strand of each region in the region set specifies which mutations to include: '+ and '-' strand include mutations where central pyrimidine is on the '+' and '-' strands of the reference genome, respectively, and '*' includes all mutations. If ignore.strand = TRUE, all mutations in the region are included regardless of strand. When there are overlapping regions with opposite strands within the same 'region set', the mutations in those overlapping regions are counted only once, because each mutation is a central pyrimidine on only one strand. Regions that are not in the contigs analyzed by the NanoSeq pipeline can be included in a 'region set', but they do not contribute any aspect of the data analysis. Best practice is to name the elements of regions.list, since these names are carried forward to the output.
 #' @param ignore.strand TRUE or FALSE (default). Whether to ignore strand information in regions.list.
 #' @param bedtools_bin Full path of bedtools binary
@@ -12,7 +12,7 @@
 #' * regions.list: Copy of input regions.list
 #' * excluded_samples: Names of samples excluded from the results because they do not have NanoSeq read coverage in any regions
 #' * indel_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context. Indel counts do not take into account strand information regardless of region strand and the ignore.strand setting.
-#' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome-wide trinucleotide background counts, and the normalized ratio of the sample/region-set trinucleotide distribution to the genome-wide trinucleotide distribution. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
+#' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome-wide trinucleotide background counts, and the normalized ratio of the sample/region-set trinucleotide distribution to the genome-wide trinucleotide distribution. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome. For DupCaller data, this also includes sample_indel_tri_bg.
 #' * trinuc_bg_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 #' * trinuc_bg_ratio.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
 #' * genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
@@ -26,6 +26,7 @@
 #'  - All and unique observed indel mutation burden (burden_indels_observed and burden_indels_unique_observed)
 #'  - Observed and corrected lower and upper confidence intervals of substitution mutation counts and all and unique observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, indels_unique_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed, indels_unique_uci_observed)
 #'  - Observed and corrected lower and upper confidence intervals of substitution mutation burdens and all and unique observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_indels_unique_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed, burden_indels_unique_uci_observed)
+#'  - For DupCaller data, indel burdens use DupCaller's indel-callable coverage and mutation_burden also includes total_indel_observed and total_indel_corrected.
 #' @export
 
 load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE, bedtools_bin){
@@ -34,32 +35,34 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	suppressPackageStartupMessages(library(rtracklayer))
 	suppressPackageStartupMessages(library(GenomicRanges))
 	suppressPackageStartupMessages(library(nanoseq_data$BSgenomepackagename,character.only=TRUE))
-	
+
 	#Initialize lists for results
 	excluded_samples <- c()
 	trinuc_bg_counts_ratio <- list()
 	vcf_snp.fix <- list()
 	indel_counts <- list()
 	mutation_burden <- list()
-	
+
 	dirs <- nanoseq_data$dirs
 	sample_names <- nanoseq_data$sample_names
-	
+	source <- if(is.null(nanoseq_data$source)) "nanoseq" else nanoseq_data$source
+	BSgenome.object <- eval(parse(text=nanoseq_data$BSgenomepackagename))
+
 	if(is.null(nanoseq_data$exclude_regions)){
 		nanoseq_data$exclude_regions <- GenomicRanges::GRanges()
 	}
 
 	#Filter out exclude_regions from region sets and remove strand information if ignore.strand = TRUE. Then add genome reference seqlevels in case not already present, so that the later reduce function correctly sorts the regions prior to BED file export.
 	regions.list <- map(regions.list,function(x) subtract(x,nanoseq_data$exclude_regions) %>% unlist) %>% GRangesList
-	
+
 	if(ignore.strand){
 		regions.list <- map(regions.list,function(x) {strand(x) <- "*"; return(x)}) %>% GRangesList
 	}
-	
+
 	for(i in 1:length(regions.list)){
 	  seqlevels(regions.list[[i]]) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
 	}
-	
+
 	#Make genome chrom info file (required for bedtools)
 	tmp.genomechrominfo <- tempfile()
 	bind_cols(
@@ -67,91 +70,126 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		seqlengths=seqlengths(eval(parse(text=nanoseq_data$BSgenomepackagename)))
 	) %>%
 		write_tsv(tmp.genomechrominfo,col_names=FALSE)
-	
+
 	#Convert BSgenome to StringSet object for indel spectrum loading
 	BSgenome.StringSet <- as(sapply(seqnames(eval(parse(text=nanoseq_data$BSgenomepackagename))),function(x){eval(parse(text=nanoseq_data$BSgenomepackagename))[[x]]}),"DNAStringSet")
-	
+
 	message("Loading sample data...")
 	pb <- txtProgressBar(min=0,max=100,style=3)
-	
+
 	for(i in 1:length(dirs)){
-		
+
 		dir <- dirs[i]
 		sample_name <- sample_names[i]
-		
+		if(source == "dupcaller"){
+			sample_paths <- nanoseq_data$dupcaller_result_paths[i,]
+		}
+
 		setTxtProgressBar(pb,i/length(dirs)*100)
-		
+
 		#Load NanoSeq bed coverage data for each 'region set'. First import coverage data for all regions combined for efficiency,
 		# and then separate the results by region set.
 		# Note, NanoSeq bed coverage data does not depend on strand information, since the coverage and trinucleotide background are the same regardless of strand.
 		# Note, import function transforms bed coordinates to 1-based coordinates, which matched the mutation VCF 1-based coordinates.
-		
+
 		 #Load bed coverage information for all regions across all region sets. Note, reduce function sorts by seqlevels, so there is no need to separately sort prior to export.
 		tmp.regions.all <- tempfile(fileext=".bed")
 		regions.list %>% unlist %>% GenomicRanges::reduce(ignore.strand=TRUE) %>% export(con=tmp.regions.all,format="bed")
-		
+
 		tmp.bedcov.all <- tempfile()
-		cmdoutput <- system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.regions.all,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
-		
+		if(source == "dupcaller"){
+			cmdoutput <- system(paste(shQuote(bedtools_bin),"intersect -sorted -wa -g",shQuote(tmp.genomechrominfo),"-a",shQuote(sample_paths$coverage),"-b",shQuote(tmp.regions.all),">",shQuote(tmp.bedcov.all)))
+		}else{
+			cmdoutput <- system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.regions.all,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
+		}
+
 		if(cmdoutput != 0){stop("Stopping: error in BEDTools command!")}
-		
-		bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
-		seqlevels(bedcov.all) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
+
+		if(source == "dupcaller"){
+			bedcov.all <- read_dupcaller_coverage_bed(tmp.bedcov.all)
+		}else{
+			bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
+			seqlevels(bedcov.all) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
+		}
 		invisible(file.remove(tmp.regions.all,tmp.bedcov.all))
-		
+
 		#Skip samples without coverage in any regions
-		if(length(bedcov.all)==0){
+		if((source == "dupcaller" && nrow(bedcov.all)==0) || (source == "nanoseq" && length(bedcov.all)==0)){
 			message(paste("    ... Skipping sample",sample_name,"- no coverage in any regions."))
 			excluded_samples <- c(excluded_samples,i)
 			next
 		}
-		colnames(mcols(bedcov.all)) <- c("coverage","tri","ref")
-		
+		if(source == "dupcaller"){
+			bedcov.all <- annotate_dupcaller_coverage_trinuc(bedcov.all,BSgenome.object)
+			bedcov.all <- bedcov.all %>%
+				mutate(START1=START + 1,END1=END)
+			bedcov.all <- makeGRangesFromDataFrame(bedcov.all,seqnames.field="CHROM",start.field="START1",end.field="END1",keep.extra.columns=TRUE)
+			seqlevels(bedcov.all) <- seqlevels(BSgenome.object)
+		}else{
+			colnames(mcols(bedcov.all)) <- c("coverage","tri","ref")
+		}
+
 		#Extract bed coverage information for each region set
 		trinuc_bg_counts_ratio[[sample_name]] <- map(regions.list,function(x) subsetByOverlaps(bedcov.all,x))
-		
+
 		rm(bedcov.all)
 		invisible(gc())
-		
+
 		#Calculate trinucleotide counts for each region set
 		trinuc_bg_counts_ratio[[sample_name]] <- map(trinuc_bg_counts_ratio[[sample_name]],function(x){
-			mcols(x)[,c("tri","coverage")] %>%
-				as.data.frame %>%
-				group_by(tri) %>%
-				summarize(n=sum(coverage)) %>%
-				left_join(data.frame(tri=trinucleotides_64),.,by="tri") %>%
-				replace(is.na(.),0) %>%
-				deframe %>%
-				trinucleotide64to32 %>%
-				as_tibble(rownames="tri") %>%
-				dplyr::rename(sample_tri_bg=value)
+			if(source == "dupcaller"){
+				x <- mcols(x) %>% as.data.frame
+				left_join(
+					dupcaller_annotated_coverage_trinuc_counts(x,"snv_coverage","sample_tri_bg"),
+					dupcaller_annotated_coverage_trinuc_counts(x,"indel_coverage","sample_indel_tri_bg"),
+					by="tri"
+				)
+			}else{
+				mcols(x)[,c("tri","coverage")] %>%
+					as.data.frame %>%
+					group_by(tri) %>%
+					summarize(n=sum(coverage)) %>%
+					left_join(data.frame(tri=trinucleotides_64),.,by="tri") %>%
+					replace(is.na(.),0) %>%
+					deframe %>%
+					trinucleotide64to32 %>%
+					as_tibble(rownames="tri") %>%
+					dplyr::rename(sample_tri_bg=value)
+			}
 		})
-		
+
 		#Annotate with genome trinucleotide background counts and calculate normalized ratio of sample to genome trinucleotide counts
 		genome_trinuc_counts <- nanoseq_data$genome_trinuc_counts.sigfit %>%
 		  enframe %>%
 		  distinct %>%
 		  set_names(c("tri","genome_tri_bg"))
-		
+
 		trinuc_bg_counts_ratio[[sample_name]] <- map(trinuc_bg_counts_ratio[[sample_name]],function(x){
 		  left_join(x,genome_trinuc_counts,by="tri") %>%
 		    mutate(ratio2genome=(sample_tri_bg/sum(sample_tri_bg))/(genome_tri_bg/sum(genome_tri_bg)) )
 		})
-		
+
 		#Extract mutation information for each region set
 		 #Load mutations in each region set, and annotate strand of reference genome that is a central pyrimidine
-		vcf_snp.fix.gr <- nanoseq_data$vcf_snp.fix[[sample_name]] %>%
-		    select(-c(ID,QUAL,FILTER)) %>%
-		    mutate(tri=str_replace(INFO,".*TRI=(...>.).*","\\1"),
-		           tri=str_c(str_sub(tri,1,4),str_sub(tri,1,1),str_sub(tri,5,5),str_sub(tri,3,3)),
-		           strand=if_else(REF %in% c("C","T"),"+","-")) %>%
-		    select(-c(REF,ALT,INFO)) %>%
+		if(source == "dupcaller"){
+			vcf_snp.fix.gr <- nanoseq_data$vcf_snp.fix[[sample_name]] %>%
+		    dupcaller_sbs_variants %>%
+		    select(-any_of(c("ID","QUAL","FILTER","REF","ALT","INFO","TN"))) %>%
 		    makeGRangesFromDataFrame(seqnames.field="CHROM",start.field="POS",end.field="POS",keep.extra.columns=TRUE)
+		}else{
+			vcf_snp.fix.gr <- nanoseq_data$vcf_snp.fix[[sample_name]] %>%
+			    select(-c(ID,QUAL,FILTER)) %>%
+			    mutate(tri=str_replace(INFO,".*TRI=(...>.).*","\\1"),
+			           tri=str_c(str_sub(tri,1,4),str_sub(tri,1,1),str_sub(tri,5,5),str_sub(tri,3,3)),
+			           strand=if_else(REF %in% c("C","T"),"+","-")) %>%
+			    select(-c(REF,ALT,INFO)) %>%
+			    makeGRangesFromDataFrame(seqnames.field="CHROM",start.field="POS",end.field="POS",keep.extra.columns=TRUE)
+		}
 		seqlevels(vcf_snp.fix.gr) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
-		
+
 		vcf_indel.fix.gr <- nanoseq_data$vcf_indel.fix[[sample_name]] %>% vcf_indel_toGRanges
 		seqlevels(vcf_indel.fix.gr) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
-		
+
 		 #Extract mutations in each region set, taking into account strand information for substitutions but not for indels.
 		 # Note, trint_subst_corrected and trint_subst_unique_corrected can have values of NaN when both the numerator and denominator
 		 #  values used to calculate them are both 0, and they can have values of Inf when only the denominator is 0.
@@ -172,7 +210,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	    ) %>%
 	    replace(is.na(.),0)
 		})
-		
+
 		vcf_snp.fix[[sample_name]] <- map2(vcf_snp.fix[[sample_name]],trinuc_bg_counts_ratio[[sample_name]],function(x,y){
 		  left_join(x %>% mutate(tri_short=str_sub(tri,1,3)),
 		            y %>% dplyr::rename(tri_short=tri),
@@ -181,11 +219,11 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		           trint_subst_unique_corrected = trint_subst_unique_observed / ratio2genome
 		           )
 		})
-		
+
 		vcf_indel.fix <- map(regions.list,function(x){
 			nanoseq_data$vcf_indel.fix[[sample_name]] %>% filter(countOverlaps(vcf_indel.fix.gr,x,type="within",ignore.strand=TRUE) > 0)
 		})
-		
+
 		# Calculate number of unique indel counts for each indel context for each 'region set'
 		indel_counts[[sample_name]] <- map(vcf_indel.fix,function(x){
 			x %>%
@@ -193,72 +231,78 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 				indel.spectrum(BSgenome.StringSet) %>%
 				indelwald.to.sigfit
 		})
-		
+
 		#Calculate mutation burdens for each 'region set'.
 		# Note, corrected burdens may be NaN when there are 0 observed/corrected mutations in a region.
 		mutation_burden[[sample_name]] <- pmap(
 			list(x=vcf_snp.fix[[sample_name]],y=vcf_indel.fix,z=trinuc_bg_counts_ratio[[sample_name]]),
 			function(x,y,z){
-		  	data.frame(
-		  		muts_observed = sum(x$trint_subst_observed),
-		  		muts_corrected = sum(x$trint_subst_corrected,na.rm=TRUE),
-		  		indels_observed = y %>% nrow,
-		  		indels_unique_observed = y %>% distinct(CHROM,POS,REF,ALT) %>% nrow,
-		  		total_observed = sum(z$sample_tri_bg),
-		  		total_corrected = sum(z$sample_tri_bg)
-	      ) %>%
+				total_indel_denominator <- if(source == "dupcaller") sum(z$sample_indel_tri_bg) else sum(z$sample_tri_bg)
+				result <- data.frame(
+					muts_observed = sum(x$trint_subst_observed),
+					muts_corrected = sum(x$trint_subst_corrected,na.rm=TRUE),
+					indels_observed = y %>% nrow,
+					indels_unique_observed = y %>% distinct(CHROM,POS,REF,ALT) %>% nrow,
+					total_observed = sum(z$sample_tri_bg),
+					total_corrected = sum(z$sample_tri_bg)
+				)
+				if(source == "dupcaller"){
+					result$total_indel_observed <- total_indel_denominator
+					result$total_indel_corrected <- total_indel_denominator
+				}
+				result %>%
 					mutate(
-		      	burden_observed = muts_observed / total_observed,
-		      	burden_corrected = muts_corrected / total_corrected,
-		      	burden_indels_observed = indels_observed / total_observed,
-		      	burden_indels_unique_observed = indels_unique_observed / total_observed,
-		      	muts_lci_observed = poisson.test(muts_observed)$conf.int[1],
-		      	muts_lci_corrected = muts_lci_observed / muts_observed * muts_corrected,
-		      	indels_lci_observed = poisson.test(indels_observed)$conf.int[1],
-		      	indels_unique_lci_observed = poisson.test(indels_unique_observed)$conf.int[1],
-		      	muts_uci_observed = poisson.test(muts_observed)$conf.int[2],
-		      	muts_uci_corrected = muts_uci_observed / muts_observed * muts_corrected,
-		      	indels_uci_observed = poisson.test(indels_observed)$conf.int[2],
-		      	indels_unique_uci_observed = poisson.test(indels_unique_observed)$conf.int[2],
-		      	burden_lci_observed = muts_lci_observed / total_observed,
-		      	burden_lci_corrected = muts_lci_corrected / total_corrected,
-		      	burden_indels_lci_observed = indels_lci_observed / total_observed,
-		      	burden_indels_unique_lci_observed = indels_unique_lci_observed / total_observed,
-		      	burden_uci_observed = muts_uci_observed / total_observed,
-		      	burden_uci_corrected = muts_uci_corrected / total_corrected,
-		      	burden_indels_uci_observed = indels_uci_observed / total_observed,
-		      	burden_indels_unique_uci_observed = indels_unique_uci_observed / total_observed
-	      	)
+						burden_observed = muts_observed / total_observed,
+						burden_corrected = muts_corrected / total_corrected,
+						burden_indels_observed = indels_observed / total_indel_denominator,
+						burden_indels_unique_observed = indels_unique_observed / total_indel_denominator,
+						muts_lci_observed = poisson.test(muts_observed)$conf.int[1],
+						muts_lci_corrected = muts_lci_observed / muts_observed * muts_corrected,
+						indels_lci_observed = poisson.test(indels_observed)$conf.int[1],
+						indels_unique_lci_observed = poisson.test(indels_unique_observed)$conf.int[1],
+						muts_uci_observed = poisson.test(muts_observed)$conf.int[2],
+						muts_uci_corrected = muts_uci_observed / muts_observed * muts_corrected,
+						indels_uci_observed = poisson.test(indels_observed)$conf.int[2],
+						indels_unique_uci_observed = poisson.test(indels_unique_observed)$conf.int[2],
+						burden_lci_observed = muts_lci_observed / total_observed,
+						burden_lci_corrected = muts_lci_corrected / total_corrected,
+						burden_indels_lci_observed = indels_lci_observed / total_indel_denominator,
+						burden_indels_unique_lci_observed = indels_unique_lci_observed / total_indel_denominator,
+						burden_uci_observed = muts_uci_observed / total_observed,
+						burden_uci_corrected = muts_uci_corrected / total_corrected,
+						burden_indels_uci_observed = indels_uci_observed / total_indel_denominator,
+						burden_indels_unique_uci_observed = indels_unique_uci_observed / total_indel_denominator
+					)
 			})
-		
+
 	}
 	close(pb)
-	
+
 	#Delete temporary files
 	invisible(file.remove(tmp.genomechrominfo))
-  
+
 	# Collapse lists to data frames
 	message("Combining sample data into data frames...")
-	
+
 	indel_counts <- indel_counts %>%
 		map(function(x) bind_rows(x,.id="region")) %>%
 		bind_rows(.id="sample")
-	
+
 	trinuc_bg_counts_ratio <- trinuc_bg_counts_ratio %>%
 	  map(function(x) bind_rows(x,.id="region")) %>%
 	  bind_rows(.id="sample")
-	
+
 	observed_corrected_trinuc_counts <- vcf_snp.fix %>%
 	  map(function(x) bind_rows(x,.id="region")) %>%
 	  bind_rows(.id="sample") %>%
-		dplyr::select(-c(tri_short,sample_tri_bg,genome_tri_bg)) %>%
+		dplyr::select(-any_of(c("tri_short","sample_tri_bg","sample_indel_tri_bg","genome_tri_bg"))) %>%
 		as_tibble
-	
+
 	mutation_burden <- mutation_burden %>%
 	  map(function(x) bind_rows(x,.id="region")) %>%
 	  bind_rows(.id="sample") %>%
 		as_tibble
-	
+
 	#For each region set, create sigfit format data frames, with samples in rows and trinucleotide contexts in columns, for:
 	# a) indel counts spectra
 	# b) sample trinucleotide background counts
@@ -272,7 +316,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 				remove_rownames %>%
 				column_to_rownames("sample")
 			})
-	
+
 	trinuc_bg_counts.sigfit <- trinuc_bg_counts_ratio %>%
 	  split(.$region) %>%
 	  map(function(x){
@@ -283,7 +327,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	    x <- x[,genome_freqs_labels] %>% set_names(genome_freqs_labels)
 	    return(x)
 	  })
-	
+
 	trinuc_bg_ratio.sigfit <- trinuc_bg_counts_ratio %>%
 	  split(.$region) %>%
 	  map(function(x){
@@ -293,7 +337,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	    x <- x[,genome_freqs_labels] %>% set_names(genome_freqs_labels)
 	    return(x)
 	  })
-	
+
 	observed_trinuc_counts.sigfit <- observed_corrected_trinuc_counts %>%
 	  split(.$region) %>%
 	  map(function(x){
@@ -302,14 +346,14 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	      column_to_rownames("sample")
 	    return(x)
 	  })
-	
+
 	#Remove excluded samples from output
 	excluded_sample_names <- sample_names[excluded_samples]
 	if(!is.null(excluded_samples)){
 	  sample_names <- sample_names[-excluded_samples]
 	  dirs <- dirs[-excluded_samples]
 	}
-	
+
 	results <- list(
 		sample_names = sample_names,
 		dirs = dirs,
@@ -324,8 +368,11 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		observed_trinuc_counts.sigfit = observed_trinuc_counts.sigfit,
 		mutation_burden = mutation_burden
 	)
-	
+	if(source == "dupcaller"){
+		results <- c(list(source = source),results)
+	}
+
 	message("DONE")
-	
+
 	return(results)
 }
