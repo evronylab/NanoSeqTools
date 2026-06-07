@@ -49,15 +49,67 @@ vcf_indel_toGRanges <- function(x){
 	return(x)
 }
 
+#Function to normalize DupCaller SNP VCF records to one row per substituted base
+split_dupcaller_sbs_records <- function(x,BSgenome_object){
+	if(nrow(x) == 0){
+		x$TN <- character()
+		return(x)
+	}
+	x <- x %>%
+		mutate(
+			POS=as.numeric(POS),
+			REF=toupper(as.character(REF)),
+			ALT=toupper(as.character(ALT)),
+			.dupcaller_sbs_order=row_number(),
+			.dupcaller_sbs_offset=0
+		)
+	ref <- as.character(x$REF)
+	alt <- as.character(x$ALT)
+	split_idx <- which(
+		!is.na(ref) & !is.na(alt) &
+		nchar(ref) == nchar(alt) &
+		nchar(ref) > 1 &
+		str_detect(ref,"^[ACGT]+$") &
+		str_detect(alt,"^[ACGT]+$")
+	)
+	keep_idx <- setdiff(seq_len(nrow(x)),split_idx)
+	split_rows <- map_dfr(split_idx,function(i){
+		offsets <- seq_len(nchar(ref[i]))
+		ref_bases <- str_sub(ref[i],offsets,offsets)
+		alt_bases <- str_sub(alt[i],offsets,offsets)
+		changed <- ref_bases != alt_bases
+		if(!any(changed)){
+			return(x[0,])
+		}
+		rows <- x[rep(i,sum(changed)),,drop=FALSE]
+		rows$POS <- x$POS[i] + offsets[changed] - 1
+		rows$REF <- ref_bases[changed]
+		rows$ALT <- alt_bases[changed]
+		rows$.dupcaller_sbs_offset <- offsets[changed]
+		return(rows)
+	})
+	x <- bind_rows(x[keep_idx,,drop=FALSE],split_rows) %>%
+		arrange(.dupcaller_sbs_order,.dupcaller_sbs_offset) %>%
+		dplyr::select(-.dupcaller_sbs_order,-.dupcaller_sbs_offset)
+	x$TN <- NA_character_
+	for(chrom in intersect(unique(x$CHROM),seqnames(BSgenome_object))){
+		idx <- which(x$CHROM == chrom)
+		idx <- idx[x$POS[idx] > 1 & x$POS[idx] < seqlengths(BSgenome_object)[chrom]]
+		if(length(idx) > 0){
+			x$TN[idx] <- as.character(subseq(BSgenome_object[[chrom]],start=x$POS[idx] - 1,end=x$POS[idx] + 1))
+		}
+	}
+	return(x)
+}
+
 #Function to keep DupCaller SNV records that can be represented in SBS96 space
 dupcaller_sbs_variants <- function(x){
-	x$TN <- str_replace(x$INFO,"(^|.*;)TN=","")
-	x$TN <- str_replace(x$TN,";.*","")
-	x$TN[!str_detect(x$INFO,"(^|;)TN=")] <- NA_character_
+	x <- x %>%
+		mutate(tri=NA_character_)
 	ref <- toupper(as.character(x$REF))
 	alt <- toupper(as.character(x$ALT))
 	tri <- toupper(as.character(x$TN))
-	x$tri <- NA_character_
+	tri_sbs <- rep(NA_character_,nrow(x))
 	valid <- !is.na(ref) & !is.na(alt) & !is.na(tri) &
 		nchar(ref) == 1 & nchar(alt) == 1 & nchar(tri) == 3 &
 		ref %in% c("A","C","G","T") & alt %in% c("A","C","G","T") &
@@ -70,9 +122,10 @@ dupcaller_sbs_variants <- function(x){
 			tri_norm[purine_ref] <- as.character(reverseComplement(DNAStringSet(tri[purine_ref])))
 			alt_norm[purine_ref] <- as.character(complement(DNAStringSet(alt[purine_ref])))
 		}
-		x$tri[valid] <- str_c(tri_norm[valid],">",str_sub(tri_norm[valid],1,1),alt_norm[valid],str_sub(tri_norm[valid],3,3))
+		tri_sbs[valid] <- str_c(tri_norm[valid],">",str_sub(tri_norm[valid],1,1),alt_norm[valid],str_sub(tri_norm[valid],3,3))
 	}
 	x <- x %>%
+		mutate(tri=tri_sbs) %>%
 		mutate(strand=if_else(REF %in% c("C","T"),"+","-")) %>%
 		filter(!is.na(tri))
 	return(x)
@@ -81,14 +134,20 @@ dupcaller_sbs_variants <- function(x){
 #Function to import a DupCaller per-position coverage BED file after BEDTools intersection
 read_dupcaller_coverage_bed <- function(path){
 	if(file.info(path)$size == 0){
-		return(data.frame(CHROM=character(),START=integer(),END=integer(),snv_coverage=numeric(),indel_coverage=numeric()))
+		return(tibble(CHROM=character(),START=integer(),END=integer(),snv_coverage=numeric(),indel_coverage=numeric()))
 	}
-	x <- read.delim(path,header=FALSE)
+	x <- read_tsv(path,col_names=FALSE,show_col_types=FALSE)
 	if(ncol(x) < 5){
 		stop("DupCaller coverage BED must have at least 5 columns!")
 	}
-	x <- x[,1:5]
-	colnames(x) <- c("CHROM","START","END","snv_coverage","indel_coverage")
+	x <- x %>%
+		transmute(
+			CHROM=X1,
+			START=X2,
+			END=X3,
+			snv_coverage=X4,
+			indel_coverage=X5
+		)
 	return(x)
 }
 
@@ -114,22 +173,22 @@ annotate_dupcaller_coverage_trinuc <- function(x,BSgenome_object){
 #Function to aggregate annotated coverage by pyrimidine-centered trinucleotide context
 dupcaller_annotated_coverage_trinuc_counts <- function(x,coverage_col,count_col){
 	if(nrow(x) == 0){
-		result <- data.frame(tri=trinucleotides_64,value=0) %>%
+		result <- tibble(tri=trinucleotides_64,value=0) %>%
 			deframe %>%
 			trinucleotide64to32 %>%
-			as_tibble(rownames="tri")
-		colnames(result)[2] <- count_col
+			as_tibble(rownames="tri") %>%
+			rename(!!count_col := value)
 		return(result)
 	}
 	result <- x %>%
 		group_by(tri) %>%
 		summarize(n=sum(.data[[coverage_col]],na.rm=TRUE),.groups="drop") %>%
-		left_join(data.frame(tri=trinucleotides_64),.,by="tri") %>%
+		left_join(tibble(tri=trinucleotides_64),.,by="tri") %>%
 		replace(is.na(.),0) %>%
 		deframe %>%
 		trinucleotide64to32 %>%
-		as_tibble(rownames="tri")
-	colnames(result)[2] <- count_col
+		as_tibble(rownames="tri") %>%
+		rename(!!count_col := value)
 	return(result)
 }
 

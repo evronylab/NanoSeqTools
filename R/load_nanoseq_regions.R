@@ -12,7 +12,7 @@
 #' * regions.list: Copy of input regions.list
 #' * excluded_samples: Names of samples excluded from the results because they do not have NanoSeq read coverage in any regions
 #' * indel_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context. Indel counts do not take into account strand information regardless of region strand and the ignore.strand setting.
-#' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome-wide trinucleotide background counts, and the normalized ratio of the sample/region-set trinucleotide distribution to the genome-wide trinucleotide distribution. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome. For DupCaller data, this also includes sample_indel_tri_bg.
+#' * trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome-wide trinucleotide background counts, and the normalized ratio of the sample/region-set trinucleotide distribution to the genome-wide trinucleotide distribution. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, sample_indel_tri_bg (DupCaller data only), genome_tri_bg, ratio2genome.
 #' * trinuc_bg_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 #' * trinuc_bg_ratio.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
 #' * genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
@@ -22,11 +22,11 @@
 #'  - The number of observed and corrected substitution mutations (muts_observed and muts_corrected)
 #'  - Number of all and unique observed indels (indels_observed, indels_unique_observed)
 #'  - Total number of observed and corrected interrogated bases (total_observed and total_corrected; note: observed and corrected are the same)
+#'  - Total number of observed indel-callable bases (total_observed_indel; DupCaller data only)
 #'  - Observed and corrected substitution mutation burdens (burden_observed and burden_corrected)
 #'  - All and unique observed indel mutation burden (burden_indels_observed and burden_indels_unique_observed)
 #'  - Observed and corrected lower and upper confidence intervals of substitution mutation counts and all and unique observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, indels_unique_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed, indels_unique_uci_observed)
 #'  - Observed and corrected lower and upper confidence intervals of substitution mutation burdens and all and unique observed lower and upper confidence intervals of indel mutation burdens (burden_lci_observed, burden_lci_corrected, burden_indels_lci_observed, burden_indels_unique_lci_observed, burden_uci_observed, burden_uci_corrected, burden_indels_uci_observed, burden_indels_unique_uci_observed)
-#'  - For DupCaller data, indel burdens use DupCaller's indel-callable coverage and mutation_burden also includes total_indel_observed and total_indel_corrected.
 #' @export
 
 load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE, bedtools_bin){
@@ -47,6 +47,11 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 	sample_names <- nanoseq_data$sample_names
 	source <- if(is.null(nanoseq_data$source)) "nanoseq" else nanoseq_data$source
 	BSgenome.object <- eval(parse(text=nanoseq_data$BSgenomepackagename))
+	if(source == "dupcaller"){
+		dupcaller_result_paths <- tibble(
+			coverage=str_c(dirs,"/",nanoseq_data$dupcaller_result_prefixes,"_coverage.bed.gz")
+		)
+	}
 
 	if(is.null(nanoseq_data$exclude_regions)){
 		nanoseq_data$exclude_regions <- GenomicRanges::GRanges()
@@ -82,7 +87,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		dir <- dirs[i]
 		sample_name <- sample_names[i]
 		if(source == "dupcaller"){
-			sample_paths <- nanoseq_data$dupcaller_result_paths[i,]
+			sample_paths <- dupcaller_result_paths[i,]
 		}
 
 		setTxtProgressBar(pb,i/length(dirs)*100)
@@ -98,7 +103,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 
 		tmp.bedcov.all <- tempfile()
 		if(source == "dupcaller"){
-			cmdoutput <- system(paste(shQuote(bedtools_bin),"intersect -sorted -wa -g",shQuote(tmp.genomechrominfo),"-a",shQuote(sample_paths$coverage),"-b",shQuote(tmp.regions.all),">",shQuote(tmp.bedcov.all)))
+			cmdoutput <- system(str_c(shQuote(bedtools_bin),"intersect -sorted -wa -g",shQuote(tmp.genomechrominfo),"-a",shQuote(sample_paths$coverage),"-b",shQuote(tmp.regions.all),">",shQuote(tmp.bedcov.all),sep=" "))
 		}else{
 			cmdoutput <- system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.regions.all,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
 		}
@@ -237,8 +242,8 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		mutation_burden[[sample_name]] <- pmap(
 			list(x=vcf_snp.fix[[sample_name]],y=vcf_indel.fix,z=trinuc_bg_counts_ratio[[sample_name]]),
 			function(x,y,z){
-				total_indel_denominator <- if(source == "dupcaller") sum(z$sample_indel_tri_bg) else sum(z$sample_tri_bg)
-				result <- data.frame(
+				total_observed_indel <- if(source == "dupcaller") sum(z$sample_indel_tri_bg) else sum(z$sample_tri_bg)
+				result <- tibble(
 					muts_observed = sum(x$trint_subst_observed),
 					muts_corrected = sum(x$trint_subst_corrected,na.rm=TRUE),
 					indels_observed = y %>% nrow,
@@ -247,15 +252,14 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 					total_corrected = sum(z$sample_tri_bg)
 				)
 				if(source == "dupcaller"){
-					result$total_indel_observed <- total_indel_denominator
-					result$total_indel_corrected <- total_indel_denominator
+					result$total_observed_indel <- total_observed_indel
 				}
 				result %>%
 					mutate(
 						burden_observed = muts_observed / total_observed,
 						burden_corrected = muts_corrected / total_corrected,
-						burden_indels_observed = indels_observed / total_indel_denominator,
-						burden_indels_unique_observed = indels_unique_observed / total_indel_denominator,
+						burden_indels_observed = indels_observed / total_observed_indel,
+						burden_indels_unique_observed = indels_unique_observed / total_observed_indel,
 						muts_lci_observed = poisson.test(muts_observed)$conf.int[1],
 						muts_lci_corrected = muts_lci_observed / muts_observed * muts_corrected,
 						indels_lci_observed = poisson.test(indels_observed)$conf.int[1],
@@ -266,12 +270,12 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 						indels_unique_uci_observed = poisson.test(indels_unique_observed)$conf.int[2],
 						burden_lci_observed = muts_lci_observed / total_observed,
 						burden_lci_corrected = muts_lci_corrected / total_corrected,
-						burden_indels_lci_observed = indels_lci_observed / total_indel_denominator,
-						burden_indels_unique_lci_observed = indels_unique_lci_observed / total_indel_denominator,
+						burden_indels_lci_observed = indels_lci_observed / total_observed_indel,
+						burden_indels_unique_lci_observed = indels_unique_lci_observed / total_observed_indel,
 						burden_uci_observed = muts_uci_observed / total_observed,
 						burden_uci_corrected = muts_uci_corrected / total_corrected,
-						burden_indels_uci_observed = indels_uci_observed / total_indel_denominator,
-						burden_indels_unique_uci_observed = indels_unique_uci_observed / total_indel_denominator
+						burden_indels_uci_observed = indels_uci_observed / total_observed_indel,
+						burden_indels_unique_uci_observed = indels_unique_uci_observed / total_observed_indel
 					)
 			})
 
