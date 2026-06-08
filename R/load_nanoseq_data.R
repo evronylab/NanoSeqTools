@@ -32,7 +32,7 @@
 #'  - The number of observed and corrected substitution mutations (muts_observed and muts_corrected)
 #'  - Number of all and unique observed indels (indels_observed, indels_unique_observed)
 #'  - Total number of observed and corrected interrogated bases (total_observed and total_corrected; note: observed and corrected are the same)
-#'  - Total number of observed indel-callable bases (total_observed_indel; DupCaller data only)
+#'  - Total number of observed indel-callable bases (total_observed_indel)
 #'  - Observed and corrected substitution mutation burdens (burden_observed and burden_corrected)
 #'  - All and unique observed indel mutation burden (burden_indels_observed and burden_indels_unique_observed)
 #'  - Observed and corrected lower and upper confidence intervals of substitution mutation counts and all and unique observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, indels_unique_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed, indels_unique_uci_observed)
@@ -48,7 +48,6 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, genome_co
   suppressPackageStartupMessages(library(BSgenomepackagename,character.only=TRUE))
   suppressPackageStartupMessages(library(vcfR))
   suppressPackageStartupMessages(library(rtracklayer))
-  suppressPackageStartupMessages(library(GenomicRanges))
 
   # Check inputs
   if(length(dirs) != length(sample_names)){
@@ -155,7 +154,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, genome_co
       #Load coverage information for exclude_regions
       tmp.bedcov.exclude_regions <- tempfile()
       if(source == "dupcaller"){
-        cmdoutput <- system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",sample_paths$coverage,"-b",tmp.exclude_regions,">",tmp.bedcov.exclude_regions))
+        cmdoutput <- system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",sample_paths$coverage,"-b",tmp.exclude_regions,"| awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$4,$5}' >",tmp.bedcov.exclude_regions))
       }else{
         cmdoutput <- system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",sample_paths$coverage,"-b",tmp.exclude_regions,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.exclude_regions))
       }
@@ -163,7 +162,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, genome_co
       if(cmdoutput != 0){stop("Stopping: error in BEDTools command!")}
 
       if(source == "dupcaller"){
-        bedcov.exclude_regions <- read_dupcaller_coverage_bed(tmp.bedcov.exclude_regions)
+        bedcov.exclude_regions <- read_tsv(tmp.bedcov.exclude_regions,col_names=c("CHROM","START","END","snv_coverage","indel_coverage"),col_types="cdddd")
         exclude_indel_coverage <- sum(bedcov.exclude_regions$indel_coverage,na.rm=TRUE)
         bedcov.exclude_regions <- annotate_dupcaller_coverage_trinuc(bedcov.exclude_regions,eval(parse(text=BSgenomepackagename)))
         bedcov.exclude_regions <- dupcaller_annotated_coverage_trinuc_counts(bedcov.exclude_regions,"snv_coverage","exclude_tri_bg")
@@ -217,12 +216,11 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, genome_co
     # Load sample and genome trinucleotide background counts
     if(source == "dupcaller"){
       dupcaller_trinuc_counts <- read_tsv(sample_paths$trinuc,show_col_types=FALSE,name_repair="minimal")
-      if(ncol(dupcaller_trinuc_counts) < 2){
-        stop("DupCaller trinucleotide matrix must have a context column and at least one duplex-group column!")
-      }
       results.trint_counts_and_ratio2genome[[sample_name]] <- dupcaller_trinuc_counts %>%
-        mutate(sample_tri_bg=rowSums(dplyr::select(.,-1),na.rm=TRUE)) %>%
-        transmute(tri=.[[1]],sample_tri_bg) %>%
+        dplyr::rename(tri=1) %>%
+        pivot_longer(-tri,values_to="count") %>%
+        group_by(tri) %>%
+        summarize(sample_tri_bg=sum(count,na.rm=TRUE),.groups="drop") %>%
         left_join(tibble(tri=trinucleotides_32_pyr),.,by="tri") %>%
         replace(is.na(.),0) %>%
         left_join(genome_trinuc_counts,by="tri")
@@ -275,22 +273,15 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, genome_co
       dplyr::select(-tri_short)
 
     if(source == "dupcaller"){
-      dupcaller_stats <- read_tsv(sample_paths$stats,col_names=FALSE,show_col_types=FALSE)
-      if(ncol(dupcaller_stats) < 2){
-        stop("DupCaller stats file must have at least two tab-separated columns!")
-      }
-      total_observed_indel <- dupcaller_stats %>%
+      indel_denominator <- read_tsv(sample_paths$stats,col_names=FALSE,show_col_types=FALSE) %>%
         filter(X1 == "Effective Indel Coverage") %>%
         pull(X2) %>%
         as.numeric
       if(!is.null(exclude_regions)){
-        total_observed_indel <- total_observed_indel - exclude_indel_coverage
-      }
-      if(length(total_observed_indel) == 0 || is.na(total_observed_indel)){
-        stop("DupCaller stats file is missing required metric: Effective Indel Coverage")
+        indel_denominator <- indel_denominator - exclude_indel_coverage
       }
     }else{
-      total_observed_indel <- sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg)
+      indel_denominator <- sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg)
     }
 
     results.mut_burden[[sample_name]] <- tibble(
@@ -299,12 +290,9 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, genome_co
       indels_observed = vcf_indel.fix[[sample_name]] %>% nrow,
       indels_unique_observed = vcf_indel.fix[[sample_name]] %>% distinct(CHROM,POS,REF,ALT) %>% nrow,
       total_observed = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg),
-      total_corrected = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg)
-    )
-    if(source == "dupcaller"){
-      results.mut_burden[[sample_name]]$total_observed_indel <- total_observed_indel
-    }
-    results.mut_burden[[sample_name]] <- results.mut_burden[[sample_name]] %>%
+      total_corrected = sum(results.trint_counts_and_ratio2genome[[sample_name]]$sample_tri_bg),
+      total_observed_indel = indel_denominator
+    ) %>%
       mutate(
         burden_observed = muts_observed / total_observed,
         burden_corrected = muts_corrected / total_corrected,

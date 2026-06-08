@@ -94,7 +94,7 @@ A list containing the following data objects:
 	- The number of observed and corrected substitution mutations (muts_observed and muts_corrected)
 	- Number of all and unique observed indels (indels_observed, indels_unique_observed)
 	- Total number of observed and corrected interrogated bases (total_observed and total_corrected; note: observed and corrected are the same)
-	- Total number of observed indel-callable bases (total_observed_indel; DupCaller data only)
+	- Total number of observed indel-callable bases (total_observed_indel)
 	- Observed and corrected substitution mutation burdens (burden_observed and burden_corrected)
 	- All and unique observed indel mutation burden (burden_indels_observed and burden_indels_unique_observed)
 	- Observed and corrected lower and upper confidence intervals of substitution mutation counts and all and unique observed lower and upper confidence intervals of indel counts (muts_lci_observed, muts_lci_corrected, indels_lci_observed, indels_unique_lci_observed, muts_uci_observed, muts_uci_corrected, indels_uci_observed, indels_unique_uci_observed)

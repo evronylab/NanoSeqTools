@@ -3,6 +3,7 @@
 
 #Load packages
 suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(GenomicRanges))
 
 # Order of trinucleotide context labels
 trint_subs_labels <- c("ACA>AAA","ACC>AAC","ACG>AAG","ACT>AAT","CCA>CAA","CCC>CAC","CCG>CAG","CCT>CAT","GCA>GAA","GCC>GAC","GCG>GAG","GCT>GAT","TCA>TAA","TCC>TAC","TCG>TAG","TCT>TAT","ACA>AGA","ACC>AGC","ACG>AGG","ACT>AGT","CCA>CGA","CCC>CGC","CCG>CGG","CCT>CGT","GCA>GGA","GCC>GGC","GCG>GGG","GCT>GGT","TCA>TGA","TCC>TGC","TCG>TGG","TCT>TGT","ACA>ATA","ACC>ATC","ACG>ATG","ACT>ATT","CCA>CTA","CCC>CTC","CCG>CTG","CCT>CTT","GCA>GTA","GCC>GTC","GCG>GTG","GCT>GTT","TCA>TTA","TCC>TTC","TCG>TTG","TCT>TTT","ATA>AAA","ATC>AAC","ATG>AAG","ATT>AAT","CTA>CAA","CTC>CAC","CTG>CAG","CTT>CAT","GTA>GAA","GTC>GAC","GTG>GAG","GTT>GAT","TTA>TAA","TTC>TAC","TTG>TAG","TTT>TAT","ATA>ACA","ATC>ACC","ATG>ACG","ATT>ACT","CTA>CCA","CTC>CCC","CTG>CCG","CTT>CCT","GTA>GCA","GTC>GCC","GTG>GCG","GTT>GCT","TTA>TCA","TTC>TCC","TTG>TCG","TTT>TCT","ATA>AGA","ATC>AGC","ATG>AGG","ATT>AGT","CTA>CGA","CTC>CGC","CTG>CGG","CTT>CGT","GTA>GGA","GTC>GGC","GTG>GGG","GTT>GGT","TTA>TGA","TTC>TGC","TTG>TGG","TTT>TGT")
@@ -128,26 +129,6 @@ dupcaller_sbs_variants <- function(x){
 		mutate(tri=tri_sbs) %>%
 		mutate(strand=if_else(REF %in% c("C","T"),"+","-")) %>%
 		filter(!is.na(tri))
-	return(x)
-}
-
-#Function to import a DupCaller per-position coverage BED file after BEDTools intersection
-read_dupcaller_coverage_bed <- function(path){
-	if(file.info(path)$size == 0){
-		return(tibble(CHROM=character(),START=integer(),END=integer(),snv_coverage=numeric(),indel_coverage=numeric()))
-	}
-	x <- read_tsv(path,col_names=FALSE,show_col_types=FALSE)
-	if(ncol(x) < 5){
-		stop("DupCaller coverage BED must have at least 5 columns!")
-	}
-	x <- x %>%
-		transmute(
-			CHROM=X1,
-			START=X2,
-			END=X3,
-			snv_coverage=X4,
-			indel_coverage=X5
-		)
 	return(x)
 }
 

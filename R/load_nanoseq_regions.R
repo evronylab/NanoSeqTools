@@ -103,7 +103,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 
 		tmp.bedcov.all <- tempfile()
 		if(source == "dupcaller"){
-			cmdoutput <- system(str_c(shQuote(bedtools_bin),"intersect -sorted -wa -g",shQuote(tmp.genomechrominfo),"-a",shQuote(sample_paths$coverage),"-b",shQuote(tmp.regions.all),">",shQuote(tmp.bedcov.all),sep=" "))
+			cmdoutput <- system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",sample_paths$coverage,"-b",tmp.regions.all,"| awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$4,$5}' >",tmp.bedcov.all))
 		}else{
 			cmdoutput <- system(paste(bedtools_bin,"intersect -sorted -wa -g",tmp.genomechrominfo,"-a",paste0(dir,"/results.cov.bed.gz"),"-b",tmp.regions.all,"| tr ';' '\t' | awk 'BEGIN{OFS=\"\t\"}{print $1,$2,$3,$6,$4,$5}' >",tmp.bedcov.all))
 		}
@@ -111,7 +111,7 @@ load_nanoseq_regions <- function(nanoseq_data,regions.list,ignore.strand = FALSE
 		if(cmdoutput != 0){stop("Stopping: error in BEDTools command!")}
 
 		if(source == "dupcaller"){
-			bedcov.all <- read_dupcaller_coverage_bed(tmp.bedcov.all)
+			bedcov.all <- read_tsv(tmp.bedcov.all,col_names=c("CHROM","START","END","snv_coverage","indel_coverage"),col_types="cdddd")
 		}else{
 			bedcov.all <- import(tmp.bedcov.all,format="bedgraph")
 			seqlevels(bedcov.all) <- seqlevels(eval(parse(text=nanoseq_data$BSgenomepackagename)))
