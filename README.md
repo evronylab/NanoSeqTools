@@ -51,7 +51,7 @@ Load data for genome-wide analysis.
 
 * source: Data source format to load. Use "nanoseq" for cancerit/NanoSeq output directories or "dupcaller" for AlexandrovLab/DupCaller output directories. Default is "nanoseq".
 
-* dupcaller_result_prefixes: A character vector of DupCaller output prefixes, in the same order as 'dirs'. If NULL, basename(dirs) is used. This is only used when source = "dupcaller". Expected DupCaller files are `{prefix}_snv.vcf`, `{prefix}_indel.vcf`, `{prefix}_coverage.bed.gz`, `{prefix}_trinuc_by_duplex_group.txt`, and `{prefix}_stats.txt`. These prefixes are also kept in the returned object so load_nanoseq_regions can find each DupCaller coverage file.
+* dupcaller_result_prefixes: A character vector of DupCaller output prefixes, in the same order as 'dirs'. If NULL, basename(dirs) is used. This is only used when source = "dupcaller". Expected DupCaller files are `SBS/{prefix}_sbs.vcf`, `INDEL/{prefix}_indel.vcf`, `DBS/{prefix}_dbs.vcf`, `SBS/{prefix}_trinuc_by_duplex_group.txt`, `INDEL/{prefix}_indel_83_corrected.txt`, `INDEL/{prefix}_indel_burden.txt`, and root-level `{prefix}_coverage.bed.gz`, `{prefix}_stats.txt`, `{prefix}_call_params.log`, and `{prefix}_estimate_params.log`. These prefixes are also kept in the returned object so load_nanoseq_regions can find each DupCaller coverage file.
 
 #### Outputs
 A list containing the following data objects:
@@ -70,7 +70,7 @@ A list containing the following data objects:
 
 * exclude_regions: GRanges object of the input parameter of additional regions to filter
 
-* vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations). For DupCaller data, multi-base substitutions are split before downstream analysis into one single-base substitution row per altered base.
+* vcf_snp.fix: List (one object per sample) containing the fixed information (fix) from the SNP vcf (only FILTER = PASS mutations). For DupCaller data, these are SBS calls only; DBS events are loaded separately and are not split or removed by genomic position.
 
 * vcf_indel.fix: List (one object per sample) containing the fixed information (fix) from the indel vcf (only FILTER = PASS mutations)
 
@@ -129,7 +129,7 @@ Load data for region-specific analysis.
 
 * indel_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context. Indel counts do not take into account strand information regardless of region strand and the ignore.strand setting.
 
-* trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these for each sample/region combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, sample_indel_tri_bg (DupCaller data only), genome_tri_bg, ratio2genome.
+* trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. number of each trinucleotide context), and the normalized ratio of these for each sample/region combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 
 * trinuc_bg_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 
@@ -155,3 +155,30 @@ Load data for region-specific analysis.
 NanoSeqTools was written by Amoolya Srinivasa and Gilad Evrony. If you use NanoSeqTools, please cite Shoag J, Srinivasa A, et al. Direct measurement of the male germline mutation rate in individuals using sequential sperm samples. Nature Communications (2025).
 
 NanoSeqTools also incorporates code from [indelwald](https://github.com/MaximilianStammnitz/Indelwald). Citation: The evolution of two transmissible cancers in Tasmanian devils (Stammnitz et al. 2023, Science 380:6642)
+
+### DupCaller 1.2.11
+
+Run both `DupCaller call` and `DupCaller estimate` before loading results. This integration requires version 1.2.11 or newer with the current output schema; it does not support older DupCaller formats. Version information and the indel opportunity multiplier are returned in `dupcaller_metadata`.
+
+```r
+data <- load_nanoseq_data(
+  dirs = "/results/sample1",
+  sample_names = "sample1",
+  BSgenomepackagename = "BSgenome.Hsapiens.UCSC.hg38",
+  genome_contigs = paste0("chr", c(1:22, "X", "Y")),
+  bedtools_bin = "/path/to/bedtools",
+  source = "dupcaller",
+  dupcaller_str_h5 = "/reference/hg38.fa.str.h5"
+)
+regional <- load_nanoseq_regions(data, regions.list, bedtools_bin = "/path/to/bedtools")
+```
+
+Use the reference and contigs corresponding to your run. `dupcaller_str_h5` is the matching index generated by DupCaller. It is needed for exact indel coverage in exclusions or regions containing STR insertion opportunities, and uses Bioconductor's `rhdf5` package. It can be supplied to either loader; the regional loader defaults to the path saved by the genome-wide loader. It is unnecessary for genome-wide loading without exclusions.
+
+DupCaller-specific output semantics:
+
+* Background tables have **96 substitution channels**, labeled like `ACA>AAA` and ordered identically to the mutation-count columns. The 192 raw opportunity rows are folded by reverse complement, preserving alternate-specific coverage. SBS base coverage is the sum of those 96 opportunities divided by three.
+* Corrections compare sample opportunities to the genome-wide reference composition. Unobserved channels contribute zero corrected mutations. Corrected SBS confidence intervals use **Fay–Feuer weighted gamma intervals**, including finite upper bounds for zero-mutation samples with coverage. Rates with zero coverage are undefined.
+* Genome-wide indel coverage comes from `Indel Base Coverage` in the estimate stats. For exclusions and regions, the 16 BED channels are expanded to ID83 opportunity multiplicities, including STR repeat-count-1 and microhomology contributions, then divided by the run's reference ID83-opportunity/base multiplier. The same multiplier is used for all regions so denominators remain additive. This differs from DupCaller regional re-estimation, which recalculates reference composition for each region. Indel spectra still use NanoSeqTools' indelwald classifier.
+* `vcf_snp.fix` contains PASS SBS calls. `vcf_dbs.fix` contains PASS DBS events, by sample (and by region set for regional results). `mutation_burden` adds `dbs_observed` and `dbs_unique_observed`; these count events, not substituted bases. DBS events are excluded if either base overlaps an exclusion, and included in a region set only if both bases lie in its union. DBS counts ignore strand. DBS burdens and spectra are not calculated.
+* Regional indel denominators are in `mutation_burden$total_observed_indel`; there is no SBS-context-specific indel background column.

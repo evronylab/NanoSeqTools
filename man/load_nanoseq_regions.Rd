@@ -8,7 +8,8 @@ load_nanoseq_regions(
   nanoseq_data,
   regions.list,
   ignore.strand = FALSE,
-  bedtools_bin
+  bedtools_bin,
+  dupcaller_str_h5 = nanoseq_data$dupcaller_str_h5
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ load_nanoseq_regions(
 \item{ignore.strand}{TRUE or FALSE (default). Whether to ignore strand information in regions.list.}
 
 \item{bedtools_bin}{Full path of bedtools binary}
+
+\item{dupcaller_str_h5}{Path to the matching DupCaller reference .str.h5 index. Defaults to the path stored by load_nanoseq_data. Required for exact regional indel coverage when STR insertion opportunities are present; requires rhdf5. Ignored for NanoSeq.}
 }
 \value{
 Returns NanoSeq results for each 'region set'. Samples without coverage of any of the regions are skipped and absent from the output.
@@ -28,7 +31,7 @@ Returns NanoSeq results for each 'region set'. Samples without coverage of any o
 \item regions.list: Copy of input regions.list
 \item excluded_samples: Names of samples excluded from the results because they do not have NanoSeq read coverage in any regions
 \item indel_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of unique observed indel counts (created with indelwald indel.spectrum function), with one row per sample and one column per indel context. Indel counts do not take into account strand information regardless of region strand and the ignore.strand setting.
-\item trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome trinucleotide background counts (i.e. for each sample/region set, the number of each trinucleotide context in the genomic region set), and the normalized ratio of these for each sample/region set combination. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, sample_indel_tri_bg (DupCaller data only), genome_tri_bg, ratio2genome.
+\item trinuc_bg_counts_ratio: Data frame of the sample trinucleotide background counts (i.e. for each sample and region set, the number of interrogated bases for each trinucleotide context), the genome-wide trinucleotide background counts, and the normalized ratio of the sample/region-set trinucleotide distribution to the genome-wide trinucleotide distribution. Columns: sample, region, tri (trinucleotide context), sample_tri_bg, genome_tri_bg, ratio2genome.
 \item trinuc_bg_counts.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the sample trinucleotide background counts, with one row per sample and one column per trinucleotide context.
 \item trinuc_bg_ratio.sigfit: List with one object per region set, each comprised of a data frame in sigfit format of the ratio of the sample trinucleotide background counts (normalized to a sum of 1) to the genome trinucleotide background counts (normalized to a sum of 1), with one row per sample and one column per trinucleotide context.
 \item genome_trinuc_counts.sigfit: Vector of the genome trinucleotide background counts, in the same order as columns in sigfit format columns.
@@ -49,4 +52,9 @@ Returns NanoSeq results for each 'region set'. Samples without coverage of any o
 }
 \description{
 This function loads NanoSeq or DupCaller data required for region-specific analysis.
+}
+\details{
+DupCaller backgrounds retain all 96 alternate-specific SBS opportunity channels in the same order as substitution counts. Their sum divided by three is SBS base coverage. Indel BED channels are expanded to ID83 multiplicities and normalized with the original run's reference opportunity multiplier. Results use the original genome-wide reference composition, rather than DupCaller re-estimate's region-specific reference composition. Corrected SBS intervals use Fay-Feuer; rates with zero coverage are undefined. Indel and DBS counts ignore strand.
+
+For DupCaller, vcf_dbs.fix contains PASS DBS records by sample and region set; mutation_burden includes dbs_observed and dbs_unique_observed. Both DBS bases must lie within the union of the region set, and any overlap with excluded regions removes the event. DBS burdens and spectra are not calculated.
 }

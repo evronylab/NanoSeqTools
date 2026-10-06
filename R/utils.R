@@ -50,56 +50,168 @@ vcf_indel_toGRanges <- function(x){
 	return(x)
 }
 
-#Function to normalize DupCaller SNP VCF records to one row per substituted base
-split_dupcaller_sbs_records <- function(x,BSgenome_object){
-	if(nrow(x) == 0){
-		x$TN <- character()
-		return(x)
+# Internal readers and calculations for the DupCaller 1.2.11 output schema.
+dupcaller_reference_trinuc <- function(chrom,pos,genome){
+	if(any(!chrom %in% seqnames(genome))){
+		stop("DupCaller contigs do not match the supplied BSgenome.")
 	}
-	x <- x %>%
-		mutate(
-			POS=as.numeric(POS),
-			REF=toupper(as.character(REF)),
-			ALT=toupper(as.character(ALT)),
-			.dupcaller_sbs_order=row_number(),
-			.dupcaller_sbs_offset=0
-		)
-	ref <- as.character(x$REF)
-	alt <- as.character(x$ALT)
-	split_idx <- which(
-		!is.na(ref) & !is.na(alt) &
-		nchar(ref) == nchar(alt) &
-		nchar(ref) > 1 &
-		str_detect(ref,"^[ACGT]+$") &
-		str_detect(alt,"^[ACGT]+$")
-	)
-	keep_idx <- setdiff(seq_len(nrow(x)),split_idx)
-	split_rows <- map_dfr(split_idx,function(i){
-		offsets <- seq_len(nchar(ref[i]))
-		ref_bases <- str_sub(ref[i],offsets,offsets)
-		alt_bases <- str_sub(alt[i],offsets,offsets)
-		changed <- ref_bases != alt_bases
-		if(!any(changed)){
-			return(x[0,])
-		}
-		rows <- x[rep(i,sum(changed)),,drop=FALSE]
-		rows$POS <- x$POS[i] + offsets[changed] - 1
-		rows$REF <- ref_bases[changed]
-		rows$ALT <- alt_bases[changed]
-		rows$.dupcaller_sbs_offset <- offsets[changed]
-		return(rows)
-	})
-	x <- bind_rows(x[keep_idx,,drop=FALSE],split_rows) %>%
-		arrange(.dupcaller_sbs_order,.dupcaller_sbs_offset) %>%
-		dplyr::select(-.dupcaller_sbs_order,-.dupcaller_sbs_offset)
-	x$TN <- NA_character_
-	for(chrom in intersect(unique(x$CHROM),seqnames(BSgenome_object))){
-		idx <- which(x$CHROM == chrom)
-		idx <- idx[x$POS[idx] > 1 & x$POS[idx] < seqlengths(BSgenome_object)[chrom]]
+	result <- rep(NA_character_,length(pos))
+	for(chr in unique(chrom)){
+		idx <- which(chrom == chr & pos > 1 & pos < seqlengths(genome)[chr])
 		if(length(idx) > 0){
-			x$TN[idx] <- as.character(subseq(BSgenome_object[[chrom]],start=x$POS[idx] - 1,end=x$POS[idx] + 1))
+			result[idx] <- as.character(Biostrings::Views(genome[[chr]],start=pos[idx] - 1,end=pos[idx] + 1))
 		}
 	}
+	return(result)
+}
+
+dupcaller_version <- function(path){
+	x <- grep("^Version:",readLines(path,warn=FALSE),value=TRUE)
+	x <- trimws(sub("^Version:","",x))
+	if(length(x) != 1 || !grepl("^[0-9]+[.][0-9]+[.][0-9]+$",x) || utils::compareVersion(x,"1.2.11") < 0){
+		stop("DupCaller call and estimate outputs must be version 1.2.11 or newer: ",path)
+	}
+	return(x)
+}
+
+dupcaller_scalar <- function(path,key){
+	x <- read_tsv(path,col_names=c("key","value"),col_types="cc",show_col_types=FALSE)
+	value <- suppressWarnings(as.numeric(x$value[x$key == key]))
+	if(length(value) != 1 || !is.finite(value) || value < 0){
+		stop("Missing or invalid '",key,"' in ",path,". Run DupCaller estimate first.")
+	}
+	return(value)
+}
+
+dupcaller_indel_multiplier <- function(path,burden_path){
+	x <- read_tsv(path,show_col_types=FALSE,name_repair="minimal")
+	value <- x$indel83_number_genome
+	if(nrow(x) != 83 || !is.numeric(value) || any(!is.finite(value) | value < 0)){
+		stop("Expected DupCaller ID83 reference opportunities in ",path)
+	}
+	multiplier <- sum(value) / dupcaller_scalar(burden_path,"Reference base number")
+	if(!is.finite(multiplier) || multiplier <= 0){
+		stop("Invalid DupCaller reference indel opportunity multiplier.")
+	}
+	return(multiplier)
+}
+
+dupcaller_fold_sbs <- function(tri,alt,value,count_col){
+	keep <- tri %in% trinucleotides_64 & alt != substr(tri,2,2)
+	tri <- tri[keep]
+	alt <- alt[keep]
+	value <- value[keep]
+	purine <- substr(tri,2,2) %in% c("A","G")
+	tri[purine] <- as.character(Biostrings::reverseComplement(Biostrings::DNAStringSet(tri[purine])))
+	alt[purine] <- as.character(Biostrings::complement(Biostrings::DNAStringSet(alt[purine])))
+	x <- tibble(tri=paste0(tri,">",substr(tri,1,1),alt,substr(tri,3,3)),value=value) %>%
+		group_by(tri) %>% summarize(value=sum(value),.groups="drop")
+	left_join(tibble(tri=trint_subs_labels),x,by="tri") %>%
+		mutate(value=replace_na(value,0)) %>% dplyr::rename(!!count_col := value)
+}
+
+dupcaller_read_sbs_opportunities <- function(path){
+	x <- read_tsv(path,show_col_types=FALSE,name_repair="minimal")
+	names(x)[1] <- "label"
+	expected <- expand_grid(tri=trinucleotides_64,alt=c("A","T","C","G")) %>%
+		filter(alt != substr(tri,2,2)) %>% mutate(label=paste0(tri,">",alt))
+	if(nrow(x) != 192 || anyDuplicated(x$label) || !setequal(x$label,expected$label) ||
+		ncol(x) < 2 || !all(vapply(x[-1],is.numeric,logical(1)))){
+		stop("Expected 192 alternate-specific DupCaller SBS opportunity rows in ",path)
+	}
+	values <- as.matrix(x[-1])
+	if(any(!is.finite(values) | values < 0)) stop("Invalid DupCaller SBS opportunities in ",path)
+	dupcaller_fold_sbs(substr(x$label,1,3),substr(x$label,5,5),rowSums(values),"sample_tri_bg")
+}
+
+dupcaller_read_coverage <- function(path,str_h5,indel_multiplier){
+	if(length(indel_multiplier) != 1 || !is.finite(indel_multiplier) || indel_multiplier <= 0){
+		stop("Missing DupCaller indel normalization; reload with load_nanoseq_data.")
+	}
+	columns <- c("CHROM","START","END",paste0("cov_",c("A","T","C","G")),
+		"del_unit","ins_unit","del_2","del_3","del_4","del_5plus",
+		"ins_A","ins_T","ins_C","ins_G","ins_len2","ins_len3","ins_len4","ins_len5plus","del_hp","ins_hp")
+	x <- read_tsv(path,col_names=columns,col_types=paste0("c",strrep("d",22)),show_col_types=FALSE)
+	if(ncol(x) != 23 || nrow(problems(x)) > 0 || anyNA(x) ||
+		any(!is.finite(as.matrix(x[-1]))) || any(as.matrix(x[-1]) < 0) ||
+		any(x$END != x$START + 1 | x$START != floor(x$START))){
+		stop("Expected the 23-column, one-base DupCaller coverage BED: ",path)
+	}
+	# The raw BED channels have different multiplicities after expansion to ID83.
+	# Deletion length bins contribute to STR plus 1/2/3/5 MH channels;
+	# insertion length bins contribute to both repeat-count 0 and 1.
+	weights <- c(1,1,2,3,4,6,1,1,1,1,2,2,2,2,1,1)
+	x$indel_coverage <- as.vector(as.matrix(x[,8:23]) %*% weights)
+	idx <- which(x$ins_unit > 0)
+	if(length(idx) > 0){
+		if(is.null(str_h5) || length(str_h5) != 1 || !file.exists(str_h5)){
+			stop("Supply dupcaller_str_h5 (the matching reference .str.h5 file) for regional/excluded indel coverage.")
+		}
+		if(!requireNamespace("rhdf5",quietly=TRUE)) stop("Install Bioconductor rhdf5 to read dupcaller_str_h5.")
+		for(chr in unique(x$CHROM[idx])){
+			rows <- idx[x$CHROM[idx] == chr]
+			positions <- x$START[rows] + 1
+			# rhdf5 reverses h5py dimensions: Python row 1 becomes R column 2.
+			repeats <- as.vector(rhdf5::h5read(str_h5,chr,index=list(positions,2)))
+			if(length(repeats) != length(rows) || any(!is.finite(repeats) | repeats < 0)){
+				stop("Invalid repeat annotations in dupcaller_str_h5 for ",chr)
+			}
+			x$indel_coverage[rows] <- x$indel_coverage[rows] + x$ins_unit[rows] * (repeats == 1)
+		}
+	}
+	x$indel_coverage <- x$indel_coverage / indel_multiplier
+	return(x)
+}
+
+dupcaller_coverage_sbs <- function(x,count_col){
+	x <- x %>% dplyr::select(tri,all_of(paste0("cov_",c("A","T","C","G")))) %>%
+		pivot_longer(-tri,names_to="alt",names_prefix="cov_",values_to="value")
+	dupcaller_fold_sbs(x$tri,x$alt,x$value,count_col)
+}
+
+dupcaller_weights <- function(ratio){
+	ifelse(is.finite(ratio) & ratio > 0,1 / ratio,0)
+}
+
+dupcaller_fay_feuer <- function(counts,weights){
+	y <- sum(counts * weights)
+	v <- sum(counts * weights^2)
+	w_max <- max(weights)
+	lower <- if(y > 0) qgamma(0.025,shape=y^2/v,scale=v/y) else 0
+	y_star <- y + w_max
+	v_star <- v + w_max^2
+	upper <- if(y_star > 0) qgamma(0.975,shape=y_star^2/v_star,scale=v_star/y_star) else 0
+	return(c(lower,upper))
+}
+
+dupcaller_corrected_ci <- function(burden,counts){
+	ci <- dupcaller_fay_feuer(counts$trint_subst_observed,dupcaller_weights(counts$ratio2genome))
+	burden$muts_lci_corrected <- ci[1]
+	burden$muts_uci_corrected <- ci[2]
+	burden$burden_lci_corrected <- ci[1] / burden$total_corrected
+	burden$burden_uci_corrected <- ci[2] / burden$total_corrected
+	return(burden)
+}
+
+dupcaller_dbs_ranges <- function(x){
+	if(any(nchar(x$REF) != 2 | nchar(x$ALT) != 2)) stop("Expected two-base DupCaller DBS records.")
+	x %>% mutate(END=POS + 1) %>%
+		makeGRangesFromDataFrame(seqnames.field="CHROM",start.field="POS",end.field="END")
+}
+
+dupcaller_check_remaining <- function(x){
+	if(any(!is.finite(x)) || any(x < -1e-6)){
+		stop("Excluded coverage exceeds total coverage; check that DupCaller outputs and reference match.")
+	}
+	return(pmax(x,0))
+}
+
+#Function to annotate PASS SBS records from DupCaller 1.2.11
+annotate_dupcaller_sbs_records <- function(x,BSgenome_object){
+	if(any(!grepl("^[ACGT]$",x$REF) | !grepl("^[ACGT]$",x$ALT) | x$REF == x$ALT)){
+		stop("Expected single-base PASS records in DupCaller SBS VCF; DBS must be loaded separately.")
+	}
+	x$TN <- dupcaller_reference_trinuc(x$CHROM,x$POS,BSgenome_object)
 	return(x)
 }
 
@@ -134,43 +246,8 @@ dupcaller_sbs_variants <- function(x){
 
 #Function to annotate DupCaller per-position coverage with reference trinucleotide context
 annotate_dupcaller_coverage_trinuc <- function(x,BSgenome_object){
-	if(nrow(x) == 0){
-		x$tri <- character()
-		return(x)
-	}
-	x$POS <- x$START + 1
-	x$tri <- NA_character_
-	for(chrom in intersect(unique(x$CHROM),seqnames(BSgenome_object))){
-		idx <- which(x$CHROM == chrom)
-		idx <- idx[x$POS[idx] > 1 & x$POS[idx] < seqlengths(BSgenome_object)[chrom]]
-		if(length(idx) > 0){
-			x$tri[idx] <- as.character(subseq(BSgenome_object[[chrom]],start=x$POS[idx] - 1,end=x$POS[idx] + 1))
-		}
-	}
-	x <- x %>% filter(tri %in% trinucleotides_64)
+	x$tri <- dupcaller_reference_trinuc(x$CHROM,x$START + 1,BSgenome_object)
 	return(x)
-}
-
-#Function to aggregate annotated coverage by pyrimidine-centered trinucleotide context
-dupcaller_annotated_coverage_trinuc_counts <- function(x,coverage_col,count_col){
-	if(nrow(x) == 0){
-		result <- tibble(tri=trinucleotides_64,value=0) %>%
-			deframe %>%
-			trinucleotide64to32 %>%
-			as_tibble(rownames="tri") %>%
-			rename(!!count_col := value)
-		return(result)
-	}
-	result <- x %>%
-		group_by(tri) %>%
-		summarize(n=sum(.data[[coverage_col]],na.rm=TRUE),.groups="drop") %>%
-		left_join(tibble(tri=trinucleotides_64),.,by="tri") %>%
-		replace(is.na(.),0) %>%
-		deframe %>%
-		trinucleotide64to32 %>%
-		as_tibble(rownames="tri") %>%
-		rename(!!count_col := value)
-	return(result)
 }
 
 #Function to import indels for spectrum analysis, modified from INDELWALD package:
