@@ -51,7 +51,7 @@ Load data for genome-wide analysis.
 
 * source: Data source format to load. Use "nanoseq" for cancerit/NanoSeq output directories or "dupcaller" for AlexandrovLab/DupCaller output directories. Default is "nanoseq".
 
-* dupcaller_result_prefixes: A character vector of DupCaller output prefixes, in the same order as 'dirs'. If NULL, basename(dirs) is used. This is only used when source = "dupcaller". Expected DupCaller files are `SBS/{prefix}_sbs.vcf`, `INDEL/{prefix}_indel.vcf`, `DBS/{prefix}_dbs.vcf`, `SBS/{prefix}_trinuc_by_duplex_group.txt`, `INDEL/{prefix}_indel_83_corrected.txt`, `INDEL/{prefix}_indel_burden.txt`, and root-level `{prefix}_coverage.bed.gz`, `{prefix}_stats.txt`, `{prefix}_call_params.log`, and `_estimate_params.log`. These prefixes are also kept in the returned object so load_nanoseq_regions can find each DupCaller coverage file.
+* dupcaller_result_prefixes: A character vector of DupCaller output prefixes, in the same order as 'dirs'. If NULL, basename(dirs) is used. This is only used when source = "dupcaller". Expected DupCaller files are `SBS/{prefix}_sbs.vcf`, `INDEL/{prefix}_indel.vcf`, `DBS/{prefix}_dbs.vcf`, `SBS/{prefix}_trinuc_by_duplex_group.txt`, `INDEL/{prefix}_indel_83_corrected.txt`, `INDEL/{prefix}_indel_burden.txt`, and root-level `{prefix}_coverage.bed.gz`, `{prefix}_stats.txt`, `{prefix}_call_params.log`, and `{prefix}_estimate_params.log`. These prefixes are also kept in the returned object so load_nanoseq_regions can find each DupCaller coverage file.
 
 #### Outputs
 A list containing the following data objects:

@@ -83,7 +83,7 @@ load_nanoseq_data <- function(dirs, sample_names, BSgenomepackagename, genome_co
       stats=str_c(dirs,"/",dupcaller_result_prefixes,"_stats.txt"),
       dbs=str_c(dirs,"/DBS/",dupcaller_result_prefixes,"_dbs.vcf"),
       call_params=str_c(dirs,"/",dupcaller_result_prefixes,"_call_params.log"),
-      estimate_params=str_c(dirs,"/_estimate_params.log"),
+      estimate_params=str_c(dirs,"/",dupcaller_result_prefixes,"_estimate_params.log"),
       indel_reference=str_c(dirs,"/INDEL/",dupcaller_result_prefixes,"_indel_83_corrected.txt"),
       indel_burden=str_c(dirs,"/INDEL/",dupcaller_result_prefixes,"_indel_burden.txt"),
       ssc_purine=NA_character_,
